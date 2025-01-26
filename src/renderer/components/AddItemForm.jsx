@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Box, Button, Grid, Typography } from '@mui/material';
 import UnifiedDocViewer from './UnifiedDocViewer';
 
+
 export default function AddItemForm({ onSubmit }) {
     const [filePath, setFilePath] = useState(null);
 
@@ -51,11 +52,6 @@ export default function AddItemForm({ onSubmit }) {
                     </Grid>
                 )}
 
-                <Grid item xs={12}>
-                    <Button type="submit" variant="contained" color="primary" disabled={!filePath}>
-                        Add Item
-                    </Button>
-                </Grid>
             </Grid>
         </Box>
     );

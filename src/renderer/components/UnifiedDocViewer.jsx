@@ -2,6 +2,10 @@ import React, {useEffect, useState} from 'react';
 import Mammoth from 'mammoth'; // For Word documents
 import {Viewer, Worker} from '@react-pdf-viewer/core';
 import '@react-pdf-viewer/core/lib/styles/index.css';
+import {Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow} from '@mui/material';
+
+import * as XLSX from 'xlsx';
+
 
 function buildFileUrl(originalPath) {
     let normalizedPath = originalPath.replace(/\\/g, '/');
@@ -17,6 +21,102 @@ function buildSafeFileUrl(originalPath) {
     // Then prepend 'safe-file:///'
     return `safe-file:///${normalizedPath}`;
 }
+
+//pptx functions
+export function PptxPreview({filePath}) {
+    const [pdfPath, setPdfPath] = useState(null);
+
+    useEffect(() => {
+        if (!filePath) return;
+
+        // 1) Ask main to convert PPTX => PDF
+        window.electronAPI.pptxConvertToPdf(filePath)
+            .then((convertedPdfPath) => {
+                setPdfPath(convertedPdfPath);
+            })
+            .catch((error) => {
+                console.error('Failed to convert PPTX to PDF:', error);
+            });
+    }, [filePath]);
+
+    if (!pdfPath) {
+        return <div>Converting PPTX to PDF... Please wait.</div>;
+    }
+
+    // 2) Build the file:// URL for the PDF
+    const pdfUrl = buildFileUrl(pdfPath);
+
+    return (
+        <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+            <Viewer fileUrl={pdfUrl}/>
+        </Worker>
+    );
+}
+
+
+// Excel Functions
+
+function parseExcel(arrayBuffer) {
+    const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
+    // Pick the first sheet, for example
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    // Convert to JSON
+    return XLSX.utils.sheet_to_json(sheet, {header: 1}); // an array of rows; each row is an array of cell values
+}
+
+export function ExcelPreview({filePath}) {
+    const [rows, setRows] = useState([]);
+
+    useEffect(() => {
+        if (!filePath) return;
+
+        // 1) Construct your custom protocol URL
+        const safeFileUrl = buildSafeFileUrl(filePath);
+
+        // 2) Fetch the .xlsx data from the main process
+        fetch(safeFileUrl)
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Fetch error: ${response.status} ${response.statusText}`);
+                }
+                return response.arrayBuffer();
+            })
+            .then((arrayBuffer) => {
+                // 3) Parse the buffer with XLSX
+                const data = parseExcel(arrayBuffer);
+                setRows(data);
+            })
+            .catch((error) => {
+                console.error('Error loading .xlsx:', error);
+            });
+    }, [filePath]);
+
+    return (
+        <div>
+            <h3>Excel Preview (MUI Table):</h3>
+            <TableContainer component={Paper} style={{maxHeight: 400}}>
+                <Table stickyHeader size="small">
+                    <TableHead>
+                        {/* If you want to label columns, you can do something dynamic or just skip */}
+                    </TableHead>
+                    <TableBody>
+                        {rows.map((row, rowIndex) => (
+                            <TableRow key={rowIndex}>
+                                {row.map((cell, cellIndex) => (
+                                    <TableCell key={cellIndex}>
+                                        {cell !== undefined ? cell.toString() : ''}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </div>
+    );
+}
+
 
 const UnifiedDocViewer = ({filePath}) => {
     const [content, setContent] = useState(''); // For .docx content
@@ -99,10 +199,11 @@ const UnifiedDocViewer = ({filePath}) => {
 
     // Excel, PowerPoint, fallback...
     if (fileType === 'xlsx') {
-        return <div>Excel file rendering is under development</div>;
+        return <ExcelPreview filePath={filePath}/>;
+
     }
     if (fileType === 'pptx') {
-        return <div>PowerPoint file rendering is under development</div>;
+        return <PptxPreview filePath={filePath}/>;
     }
 
     return <div>Unsupported file type</div>;

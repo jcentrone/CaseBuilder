@@ -44,5 +44,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         add: (eviData) => ipcRenderer.invoke('evidence:add', eviData),
         getByCase: (caseId) => ipcRenderer.invoke('evidence:getByCase', caseId)
     },
+    // powerpoint
+    pptxConvertToPdf: (pptxPath) => ipcRenderer.invoke('pptx:convertToPdf', pptxPath),
+
 
 })

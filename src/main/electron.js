@@ -46,7 +46,10 @@ function createWindow() {
         width: 1200,
         height: 800,
         webPreferences: {
-            nodeIntegration: false,
+            // contextIsolation: false,
+            sandbox: false,
+            nodeIntegration: true,
+            // nodeIntegration: false,
             contextIsolation: true,
             enableRemoteModule: false,
             webSecurity: false,
@@ -327,6 +330,37 @@ app.whenReady().then(() => {
     ipcMain.handle('evidence:getByCase', (event, caseId) => {
         return getEvidenceByCase(caseId)
     })
+
+    // ---- IPC for Powerpoint to PDF conversion ----
+    ipcMain.handle('pptx:convertToPdf', async (event, pptxPath) => {
+        try {
+            // 1) Decide where to put the resulting PDF
+            // For example, same directory as pptx
+            const outputDir = path.dirname(pptxPath);
+
+            // 2) Build the command string
+            const command = `soffice --headless --convert-to pdf "${pptxPath}" --outdir "${outputDir}"`;
+            console.log('Running:', command);
+
+            // 3) Execute
+            await new Promise((resolve, reject) => {
+                require('child_process').exec(command, (error, stdout, stderr) => {
+                    if (error) return reject(error);
+                    console.log('LibreOffice convert stdout:', stdout);
+                    console.log('LibreOffice convert stderr:', stderr);
+                    resolve();
+                });
+            });
+
+            // 4) The PDF will have the same base name but with .pdf
+            const base = path.basename(pptxPath, '.pptx'); // e.g. "slides"
+            // 5) Return the PDF path
+            return path.join(outputDir, base + '.pdf');
+        } catch (error) {
+            console.error('Failed to convert PPTX:', error);
+            throw error;
+        }
+    });
 
     createWindow()
 
