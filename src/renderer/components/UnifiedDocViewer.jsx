@@ -32,6 +32,7 @@ const UnifiedDocViewer = ({filePath}) => {
     useEffect(() => {
         if (fileType === 'docx') {
             const safeFileUrl = buildSafeFileUrl(filePath);
+            console.log('DOCX about to fetch:', {filePath, safeFileUrl});
 
             fetch(safeFileUrl)
                 .then((response) => response.arrayBuffer())

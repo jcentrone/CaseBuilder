@@ -1,8 +1,19 @@
 // src/main/electron.js
-const {app, BrowserWindow, Menu, ipcMain, dialog} = require('electron')
+const {app, BrowserWindow, Menu, ipcMain, dialog, protocol} = require('electron')
 const path = require('path')
-const {protocol} = require('electron');
 const fs = require('fs');
+
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'safe-file',
+        privileges: {
+            standard: true,        // so the renderer can use fetch() with this scheme
+            secure: true,          // treat like an HTTPS origin
+            supportFetchAPI: true, // explicit if you want fetch() allowed
+            corsEnabled: true,     // if you need cross-origin fetch from safe-file
+        },
+    },
+]);
 
 
 const remoteMain = require('@electron/remote/main');
@@ -160,10 +171,31 @@ app.whenReady().then(() => {
         // Register the protocol
         protocol.handle('safe-file', async (request) => {
             console.log(`Received URL: ${request.url}`);
-            const url = request.url.replace('safe-file:///', ''); // Remove protocol prefix
-            const filePath = path.normalize(decodeURIComponent(url));
+            // Parse the URL properly
+            const parsedUrl = new URL(request.url);
+            // parsedUrl.protocol => "safe-file:"
+            // parsedUrl.hostname => "c" (the drive letter)
+            // parsedUrl.pathname => "/Users/joece/.../file.docx"
+
+            // On Windows, the drive letter is in `hostname`; the rest is in `pathname`.
+            // Remove leading slashes from pathname if needed.
+            let pathname = decodeURIComponent(parsedUrl.pathname);
+            if (process.platform === 'win32') {
+                // Typically strip the leading slash
+                // e.g. "/Users/joece/OneDrive" => "Users/joece/OneDrive"
+                pathname = pathname.replace(/^\/+/, '');
+            }
+
+            // Rebuild a normal Windows path => "c:\Users\joece\OneDrive..."
+            let filePath = parsedUrl.hostname
+                ? `${parsedUrl.hostname}:${path.sep}${pathname}`
+                : pathname;
+
+            // Normalize to handle slashes/backslashes
+            filePath = path.normalize(filePath);
             console.log(`Resolved file path: ${filePath}`);
 
+            // Now try reading the file
             try {
                 const extension = path.extname(filePath).toLowerCase();
                 const mimeTypes = {
@@ -176,11 +208,11 @@ app.whenReady().then(() => {
                     '.mp4': 'video/mp4',
                     '.mp3': 'audio/mpeg',
                     '.wav': 'audio/wav',
+                    // ... etc.
                 };
 
                 const mimeType = mimeTypes[extension] || 'application/octet-stream';
 
-                // Read the file and create a response
                 const data = await fs.promises.readFile(filePath);
                 console.log(`Returning file with MIME type: ${mimeType}`);
                 return new Response(data, {headers: {'Content-Type': mimeType}});
@@ -189,6 +221,7 @@ app.whenReady().then(() => {
                 return new Response(null, {status: 404});
             }
         });
+
     } catch (error) {
         console.error('Failed to register protocol:', error);
     }

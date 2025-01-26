@@ -3,18 +3,16 @@
 <head>
     <meta charset="UTF-8"/>
     <meta content="
-          default-src 'self';
-          script-src 'self' 'unsafe-inline' https://unpkg.com;
-          style-src 'self' 'unsafe-inline';
-          worker-src 'self' blob:;
-          font-src 'self' blob: data: safe-file: file:;
-          img-src 'self' blob: data: safe-file: file:;
-          media-src 'self' blob: data: safe-file: file:;
-          connect-src 'self' file: data: blob: https://view.officeapps.live.com https://docs.google.com;
-          frame-src 'self' file: blob: data: https://view.officeapps.live.com https://docs.google.com;
-      "
-          http-equiv="Content-Security-Policy"
-    >
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://unpkg.com;
+    style-src 'self' 'unsafe-inline';
+    worker-src 'self' blob:;
+    font-src 'self' blob: data: safe-file: file:;
+    img-src 'self' blob: data: safe-file: file:;
+    media-src 'self' blob: data: safe-file: file:;
+    connect-src 'self' file: data: blob: safe-file: https://view.officeapps.live.com https://docs.google.com;
+    frame-src 'self' file: blob: data: https://view.officeapps.live.com https://docs.google.com;
+" http-equiv="Content-Security-Policy">
 
 
     <title>CaseBuilder.AI</title>
