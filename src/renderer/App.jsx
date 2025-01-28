@@ -7,6 +7,7 @@ import CaseDetail from './pages/CaseDetail'
 import Clients from './pages/Clients'
 import ClientDetail from './pages/ClientDetail'
 import CaseDocuments from './pages/CaseDocuments'
+import CaseEvidence from './pages/CaseEvidence'
 import CaseGraph from './pages/CaseGraph'
 import CaseAssistant from './pages/CaseAssistant'
 import CalendarPage from "./pages/CalendarPage"
@@ -24,7 +25,7 @@ export default function App() {
                     <Route path="/cases" element={<CasesList/>}/>
                     <Route path="/cases/:caseId" element={<CaseDetail setCurrentModule={setCurrentModule}/>}>
                         <Route path="documents" element={<CaseDocuments/>}/>
-                        <Route path="evidence" element={<CaseDocuments/>}/>
+                        <Route path="evidence" element={<CaseEvidence/>}/>
                         <Route path="graph" element={<CaseGraph/>}/>
                         <Route path="assistant" element={<CaseAssistant/>}/>
                         <Route path="details" element={<CaseForm/>}/>

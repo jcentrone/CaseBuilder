@@ -291,21 +291,23 @@ app.whenReady().then(() => {
 
     // ---- IPC for Documents ----
     ipcMain.handle('documents:add', (event, docData) => {
-        // docData might include { id, caseId, type, originalPath, fileName, dateAdded }
-        // 1) copy file into /Documents folder
-        const destination = addDocumentFile(docData.originalPath, docData.caseId, docData.fileName)
+        console.log('[documents:add] docData received:', docData);
 
-        // 2) insert DB record
+        const destination = addDocumentFile(docData.filePath, docData.caseId, docData.fileName);
+        console.log('[documents:add] Copied file to:', destination);
+
         addDocument({
             id: docData.id,
             caseId: docData.caseId,
             type: docData.type,
             filePath: destination,
+            fileName: docData.fileName, // ensure fileName is provided
             dateAdded: docData.dateAdded
-        })
+        });
 
-        return 'OK'
-    })
+        console.log('[documents:add] Database insert done');
+        return 'OK';
+    });
     ipcMain.handle('documents:getByCase', (event, caseId) => {
         return getDocumentsByCase(caseId)
     })
@@ -314,16 +316,16 @@ app.whenReady().then(() => {
     ipcMain.handle('evidence:add', (event, eviData) => {
         // eviData might include { id, caseId, type, originalPath, fileName, dateAdded }
         // copy file
-        const destination = addEvidenceFile(eviData.originalPath, eviData.caseId, eviData.fileName)
+        const destination = addEvidenceFile(eviData.filePath, eviData.caseId, eviData.fileName);
 
-        // insert DB
         addEvidence({
             id: eviData.id,
             caseId: eviData.caseId,
             type: eviData.type,
             filePath: destination,
-            dateAdded: eviData.dateAdded
-        })
+            fileName: eviData.fileName,
+            dateAdded: eviData.dateAdded,
+        });
 
         return 'OK'
     })

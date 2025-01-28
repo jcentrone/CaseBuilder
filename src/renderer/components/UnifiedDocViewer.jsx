@@ -5,6 +5,7 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import {Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow} from '@mui/material';
 
 import * as XLSX from 'xlsx';
+import PptxThumbnailPreview from "./PptxThumbnailPreview";
 
 
 function buildFileUrl(originalPath) {
@@ -203,7 +204,7 @@ const UnifiedDocViewer = ({filePath}) => {
 
     }
     if (fileType === 'pptx') {
-        return <PptxPreview filePath={filePath}/>;
+        return <PptxThumbnailPreview filePath={filePath}/>;
     }
 
     return <div>Unsupported file type</div>;

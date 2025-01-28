@@ -25,18 +25,18 @@ function ensureCaseFolders(caseId) {
 }
 
 // Copy or move file into the Documents folder
-function addDocumentFile(originalPath, caseId, fileName) {
-    ensureCaseFolders(caseId)  // just in case
-    const dest = path.join(baseDir, caseId, 'Documents', fileName)
-    fs.copyFileSync(originalPath, dest) // or fs.renameSync to move instead of copy
-    return dest
+function addDocumentFile(filePath, caseId, fileName) {
+    ensureCaseFolders(caseId);
+    const dest = path.join(baseDir, caseId, 'Documents', fileName);
+    fs.copyFileSync(filePath, dest);
+    return dest;
 }
 
 // Similarly for evidence
-function addEvidenceFile(originalPath, caseId, fileName) {
+function addEvidenceFile(filePath, caseId, fileName) {
     ensureCaseFolders(caseId)
     const dest = path.join(baseDir, caseId, 'Evidence', fileName)
-    fs.copyFileSync(originalPath, dest)
+    fs.copyFileSync(filePath, dest)
     return dest
 }
 

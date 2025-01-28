@@ -1,5 +1,5 @@
 // src/main/preload.js
-const {contextBridge, ipcRenderer} = require('electron')
+const {contextBridge, ipcRenderer, shell} = require('electron')
 // const path = require('path');
 // console.log('Path module loaded:', path);
 
@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     // powerpoint
     pptxConvertToPdf: (pptxPath) => ipcRenderer.invoke('pptx:convertToPdf', pptxPath),
-
+    // shell
+    shell: {
+        openPath: async (filePath) => {
+            return await shell.openPath(filePath);
+        },
+    },
 
 })

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Box, Button, Grid, Typography } from '@mui/material';
+import React, {useState} from 'react';
+import {Box, Button, FormControl, Grid, InputLabel, MenuItem, Select, Typography} from '@mui/material';
 import UnifiedDocViewer from './UnifiedDocViewer';
 
-
-export default function AddItemForm({ onSubmit }) {
+export default function AddItemForm({onSubmit, collectFormDataRef}) {
     const [filePath, setFilePath] = useState(null);
+    const [fileCategory, setFileCategory] = useState('Document'); // default
 
     const handleFileSelect = async () => {
         const result = await window.electronAPI.dialog.showOpenDialog({
@@ -15,7 +15,7 @@ export default function AddItemForm({ onSubmit }) {
         });
 
         if (!result.canceled && result.filePaths.length > 0) {
-            setFilePath(result.filePaths[0]); // Set the file path
+            setFilePath(result.filePaths[0]);
         }
     };
 
@@ -25,8 +25,9 @@ export default function AddItemForm({ onSubmit }) {
         if (filePath) {
             const itemData = {
                 id: Date.now().toString(),
-                type: 'Custom',
-                fileName: window.electronAPI.path.basename(filePath), // Use exposed path API
+                // Here we carry the category "Document" or "Evidence"
+                category: fileCategory,
+                fileName: window.electronAPI.path.basename(filePath),
                 filePath: filePath,
                 dateAdded: new Date().toISOString(),
             };
@@ -35,11 +36,37 @@ export default function AddItemForm({ onSubmit }) {
         }
     };
 
+    React.useImperativeHandle(collectFormDataRef, () => ({
+        getData: () => ({
+            id: Date.now().toString(),
+            category: fileCategory,
+            fileName: window.electronAPI.path.basename(filePath),
+            filePath,
+            dateAdded: new Date().toISOString(),
+        }),
+    }));
+
     return (
-        <Box component="form" onSubmit={handleSubmit}>
+        <Box component="form">
             <Grid container spacing={2}>
                 <Grid item xs={12}>
                     <Typography variant="h6">Upload a File</Typography>
+
+                    {/* Category dropdown */}
+                    <FormControl fullWidth sx={{my: 2}}>
+                        <InputLabel id="file-type-label">Type</InputLabel>
+                        <Select
+                            labelId="file-type-label"
+                            id="file-type"
+                            value={fileCategory}
+                            label="Type"
+                            onChange={(e) => setFileCategory(e.target.value)}
+                        >
+                            <MenuItem value="Document">Document</MenuItem>
+                            <MenuItem value="Evidence">Evidence</MenuItem>
+                        </Select>
+                    </FormControl>
+
                     <Button onClick={handleFileSelect} variant="contained" color="primary">
                         Select File
                     </Button>
@@ -48,10 +75,9 @@ export default function AddItemForm({ onSubmit }) {
                 {filePath && (
                     <Grid item xs={12}>
                         <Typography variant="subtitle1">Preview:</Typography>
-                        <UnifiedDocViewer filePath={filePath} />
+                        <UnifiedDocViewer filePath={filePath}/>
                     </Grid>
                 )}
-
             </Grid>
         </Box>
     );

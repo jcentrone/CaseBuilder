@@ -55,6 +55,7 @@ db.exec(`
       caseId TEXT,
       type TEXT,
       filePath TEXT,
+      fileName TEXT,
       dateAdded TEXT,
       FOREIGN KEY (caseId) REFERENCES cases(id)
     );
@@ -65,6 +66,7 @@ db.exec(`
       caseId TEXT,
       type TEXT,
       filePath TEXT,
+      fileName TEXT,
       dateAdded TEXT,
       FOREIGN KEY (caseId) REFERENCES cases(id)
     );
@@ -127,7 +129,7 @@ function getAllCases() {
 }
 
 function updateCase(caseId, updatedData) {
-    const { caseName, description, dateOpened, caseType, courtName, caseNumber, parties } = updatedData;
+    const {caseName, description, dateOpened, caseType, courtName, caseNumber, parties} = updatedData;
 
     console.log('Updating case with ID:', caseId);
     console.log('Updated Data:', updatedData);
@@ -165,13 +167,12 @@ function updateCase(caseId, updatedData) {
         console.log('Starting transaction...');
         transaction();
         console.log('Transaction committed successfully.');
-        return { success: true };
+        return {success: true};
     } catch (error) {
         console.error('Error during transaction:', error);
         throw error; // Pass the error to the caller
     }
 }
-
 
 
 function getCasesByClient(clientId) {
@@ -211,8 +212,8 @@ function getCaseById(caseId) {
 // -------------- DOCUMENTS CRUD --------------
 function addDocument(doc) {
     const stmt = db.prepare(`
-    INSERT INTO documents (id, caseId, type, filePath, dateAdded)
-    VALUES (@id, @caseId, @type, @filePath, @dateAdded)
+    INSERT INTO documents (id, caseId, type, filePath, fileName, dateAdded)
+    VALUES (@id, @caseId, @type, @filePath, @fileName, @dateAdded)
   `)
     stmt.run(doc)
 }
@@ -225,8 +226,8 @@ function getDocumentsByCase(caseId) {
 // -------------- EVIDENCE CRUD --------------
 function addEvidence(evi) {
     const stmt = db.prepare(`
-    INSERT INTO evidence (id, caseId, type, filePath, dateAdded)
-    VALUES (@id, @caseId, @type, @filePath, @dateAdded)
+    INSERT INTO evidence (id, caseId, type, filePath, fileName, dateAdded)
+    VALUES (@id, @caseId, @type, @filePath, @fileName, @dateAdded)
   `)
     stmt.run(evi)
 }

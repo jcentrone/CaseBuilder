@@ -13,25 +13,24 @@ import {
 } from '@mui/material';
 import {useOutletContext} from 'react-router-dom';
 
-export default function CaseDocuments() {
-    // Pull documents from parent (CaseDetail) via Outlet context
-    const {documents} = useOutletContext();
+export default function CaseEvidence() {
+    // Pull evidence from parent (CaseDetail) via Outlet context
+    const {evidence} = useOutletContext();
 
     // Local state for filter text
     const [filter, setFilter] = useState('');
 
     // Filter logic (case-insensitive match against fileName)
-    const filteredDocuments = useMemo(() => {
-        if (!documents || documents.length === 0) {
+    const filteredEvidence = useMemo(() => {
+        if (!evidence || evidence.length === 0) {
             return [];
         }
-        return documents.filter((doc) =>
-            doc.fileName.toLowerCase().includes(filter.toLowerCase())
+        return evidence.filter((ev) =>
+            ev.fileName.toLowerCase().includes(filter.toLowerCase())
         );
-    }, [documents, filter]);
+    }, [evidence, filter]);
 
-    // Example method to open a document file
-    // (adjust to however you actually open files in your app)
+    // Example method to open an evidence file
     const openDocument = async (filePath) => {
         const result = await window.electronAPI.shell.openPath(filePath);
         if (result) {
@@ -45,7 +44,6 @@ export default function CaseDocuments() {
 
     return (
         <Box>
-
             {/* Filter text field */}
             <Box display="flex" justifyContent="flex-start" mb={2}>
                 <TextField
@@ -57,9 +55,9 @@ export default function CaseDocuments() {
                 />
             </Box>
 
-            {/* Table of documents */}
+            {/* Table of evidence */}
             <TableContainer component={Paper}>
-                <Table size="small" aria-label="documents table">
+                <Table size="small" aria-label="evidence table">
                     <TableHead>
                         <TableRow>
                             <TableCell>Name</TableCell>
@@ -69,19 +67,19 @@ export default function CaseDocuments() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {filteredDocuments.map((doc) => (
-                            <TableRow key={doc.id}>
+                        {filteredEvidence.map((ev) => (
+                            <TableRow key={ev.id}>
                                 <TableCell>
-                                    {doc.fileName || doc.filePath.split(/[\\/]/).pop()}
+                                    {ev.fileName || ev.filePath.split(/[\\/]/).pop()}
                                 </TableCell>
                                 <TableCell>
-                                    {doc.dateAdded
-                                        ? new Date(doc.dateAdded).toLocaleDateString('en-US')
+                                    {ev.dateAdded
+                                        ? new Date(ev.dateAdded).toLocaleDateString('en-US')
                                         : 'N/A'}
                                 </TableCell>
-                                <TableCell>{doc.type}</TableCell>
+                                <TableCell>{ev.type}</TableCell>
                                 <TableCell>
-                                    <Button size="small" onClick={() => openDocument(doc.filePath)}>
+                                    <Button size="small" onClick={() => openDocument(ev.filePath)}>
                                         Open
                                     </Button>
                                 </TableCell>
@@ -89,10 +87,10 @@ export default function CaseDocuments() {
                         ))}
 
                         {/* If the filtered list is empty, display a placeholder row */}
-                        {filteredDocuments.length === 0 && (
+                        {filteredEvidence.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={4} align="center">
-                                    No documents found.
+                                    No evidence found.
                                 </TableCell>
                             </TableRow>
                         )}
