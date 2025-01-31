@@ -9,9 +9,15 @@ export default function AddItemForm({onSubmit, collectFormDataRef}) {
     const handleFileSelect = async () => {
         const result = await window.electronAPI.dialog.showOpenDialog({
             properties: ['openFile'],
-            // filters: [
-            //     { name: 'Documents', extensions: ['pdf', 'docx', 'txt', 'png', 'jpg'] },
-            // ],
+            filters: [
+                {name: 'All Files', extensions: ['*']},
+                {name: 'Documents', extensions: ['doc', 'docx', 'pdf', 'txt']},
+                {name: 'Presentations', extensions: ['pptx']},
+                {name: 'Spreadsheets', extensions: ['xls', 'xlsx']},
+                {name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif']},
+                {name: 'Videos', extensions: ['mp4', 'avi', 'mkv']},
+                {name: 'Audio', extensions: ['mp3', 'wav', 'ogg']},
+            ],
         });
 
         if (!result.canceled && result.filePaths.length > 0) {
@@ -19,29 +25,12 @@ export default function AddItemForm({onSubmit, collectFormDataRef}) {
         }
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-
-        if (filePath) {
-            const itemData = {
-                id: Date.now().toString(),
-                // Here we carry the category "Document" or "Evidence"
-                category: fileCategory,
-                fileName: window.electronAPI.path.basename(filePath),
-                filePath: filePath,
-                dateAdded: new Date().toISOString(),
-            };
-
-            onSubmit(itemData);
-        }
-    };
-
     React.useImperativeHandle(collectFormDataRef, () => ({
         getData: () => ({
-            id: Date.now().toString(),
+            documentId: crypto.randomUUID(),
             category: fileCategory,
             fileName: window.electronAPI.path.basename(filePath),
-            filePath,
+            filePath: filePath,
             dateAdded: new Date().toISOString(),
         }),
     }));

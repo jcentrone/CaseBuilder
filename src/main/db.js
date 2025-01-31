@@ -51,7 +51,8 @@ db.exec(`
 `)
 db.exec(`
     CREATE TABLE IF NOT EXISTS documents (
-      id TEXT PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      documentId TEXT,
       caseId TEXT,
       type TEXT,
       filePath TEXT,
@@ -62,7 +63,8 @@ db.exec(`
 `)
 db.exec(`
     CREATE TABLE IF NOT EXISTS evidence (
-      id TEXT PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      documentId TEXT,
       caseId TEXT,
       type TEXT,
       filePath TEXT,
@@ -212,10 +214,11 @@ function getCaseById(caseId) {
 // -------------- DOCUMENTS CRUD --------------
 function addDocument(doc) {
     const stmt = db.prepare(`
-    INSERT INTO documents (id, caseId, type, filePath, fileName, dateAdded)
-    VALUES (@id, @caseId, @type, @filePath, @fileName, @dateAdded)
+    INSERT INTO documents (documentId, caseId, type, filePath, fileName, dateAdded)
+    VALUES (@documentId, @caseId, @type, @filePath, @fileName, @dateAdded)
   `)
     stmt.run(doc)
+    return doc.documentId;
 }
 
 function getDocumentsByCase(caseId) {
@@ -226,10 +229,11 @@ function getDocumentsByCase(caseId) {
 // -------------- EVIDENCE CRUD --------------
 function addEvidence(evi) {
     const stmt = db.prepare(`
-    INSERT INTO evidence (id, caseId, type, filePath, fileName, dateAdded)
-    VALUES (@id, @caseId, @type, @filePath, @fileName, @dateAdded)
+    INSERT INTO evidence (documentId, caseId, type, filePath, fileName, dateAdded)
+    VALUES (@documentId, @caseId, @type, @filePath, @fileName, @dateAdded)
   `)
     stmt.run(evi)
+    return evi.documentId;
 }
 
 function getEvidenceByCase(caseId) {

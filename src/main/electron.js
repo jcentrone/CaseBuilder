@@ -150,6 +150,20 @@ function createWindow() {
                     }
                 }
             ]
+        },
+        // Setting menu
+        {
+            label: 'Settings',
+            submenu: [
+                {
+                    label: 'User Profile',
+                    accelerator: 'CmdOrCtrl+U',
+                    click: () => {
+                        console.log('[MAIN] Open User Profile Tab')
+                        mainWindow.webContents.send('open-user-profile') // Notify renderer process
+                    }
+                }
+            ]
         }
     ]
 
@@ -160,27 +174,13 @@ function createWindow() {
 
 
 app.whenReady().then(() => {
-
-    // Remove the Autofill object from all webContents
-    // app.on('web-contents-created', (event, webContents) => {
-    //     webContents.on('did-finish-load', () => {
-    //         webContents.executeJavaScript(`
-    //             delete window.Autofill;
-    //         `);
-    //     });
-    // });
-
     try {
         // Register the protocol
         protocol.handle('safe-file', async (request) => {
             console.log(`Received URL: ${request.url}`);
             // Parse the URL properly
             const parsedUrl = new URL(request.url);
-            // parsedUrl.protocol => "safe-file:"
-            // parsedUrl.hostname => "c" (the drive letter)
-            // parsedUrl.pathname => "/Users/joece/.../file.docx"
 
-            // On Windows, the drive letter is in `hostname`; the rest is in `pathname`.
             // Remove leading slashes from pathname if needed.
             let pathname = decodeURIComponent(parsedUrl.pathname);
             if (process.platform === 'win32') {
@@ -211,6 +211,11 @@ app.whenReady().then(() => {
                     '.mp4': 'video/mp4',
                     '.mp3': 'audio/mpeg',
                     '.wav': 'audio/wav',
+                    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    '.pdf': 'application/pdf',
+                    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+
                     // ... etc.
                 };
 
@@ -296,17 +301,17 @@ app.whenReady().then(() => {
         const destination = addDocumentFile(docData.filePath, docData.caseId, docData.fileName);
         console.log('[documents:add] Copied file to:', destination);
 
-        addDocument({
-            id: docData.id,
+        const newId = addDocument({
+            documentId: docData.documentId, // Ensure this is a UUID
             caseId: docData.caseId,
             type: docData.type,
             filePath: destination,
-            fileName: docData.fileName, // ensure fileName is provided
+            fileName: docData.fileName,
             dateAdded: docData.dateAdded
         });
 
         console.log('[documents:add] Database insert done');
-        return 'OK';
+        return {documentId: newId};
     });
     ipcMain.handle('documents:getByCase', (event, caseId) => {
         return getDocumentsByCase(caseId)
@@ -318,8 +323,8 @@ app.whenReady().then(() => {
         // copy file
         const destination = addEvidenceFile(eviData.filePath, eviData.caseId, eviData.fileName);
 
-        addEvidence({
-            id: eviData.id,
+        const newId = addEvidence({
+            documentId: eviData.documentId,
             caseId: eviData.caseId,
             type: eviData.type,
             filePath: destination,
@@ -327,7 +332,8 @@ app.whenReady().then(() => {
             dateAdded: eviData.dateAdded,
         });
 
-        return 'OK'
+        console.log('[evidence:add] Database insert done');
+        return {documentId: newId};
     })
     ipcMain.handle('evidence:getByCase', (event, caseId) => {
         return getEvidenceByCase(caseId)
@@ -364,7 +370,13 @@ app.whenReady().then(() => {
         }
     });
 
+    ipcMain.on('user-settings-saved', (event, data) => {
+        console.log('User Settings Updated:', data);
+    });
+
     createWindow()
 
 })
+
+
 

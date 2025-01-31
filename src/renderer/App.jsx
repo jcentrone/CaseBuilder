@@ -1,6 +1,7 @@
 // src/renderer/App.jsx
-import React, {useState} from 'react'
-import {BrowserRouter as Router, Route, Routes} from 'react-router-dom'
+import React, {useState, useEffect } from 'react'
+import {BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom'
+import UserSettingsForm from "./components/UserSettingsForm";
 import Layout from './layout/Layout'
 import CasesList from './pages/CaseList'
 import CaseDetail from './pages/CaseDetail'
@@ -13,6 +14,24 @@ import CaseAssistant from './pages/CaseAssistant'
 import CalendarPage from "./pages/CalendarPage"
 import CaseForm from "./components/CaseForm"
 
+
+function ElectronListener() {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        window.electron?.ipcRenderer.on("open-user-profile", () => {
+            navigate("/settings"); // Navigate to settings when menu option is clicked
+        });
+
+        return () => {
+            window.electron?.ipcRenderer.removeAllListeners("open-user-profile");
+        };
+    }, [navigate]);
+
+    return null; // This component only listens for Electron events
+}
+
+
 export default function App() {
 
     // Lift the state to manage the current module.
@@ -20,6 +39,7 @@ export default function App() {
 
     return (
         <Router>
+            <ElectronListener />
             <Layout currentModule={currentModule} setCurrentModule={setCurrentModule}>
                 <Routes>
                     <Route path="/cases" element={<CasesList/>}/>

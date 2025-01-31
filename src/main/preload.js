@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('toggle-dark-mode', callback)
     },
 
+    ipcRenderer: {
+        send: (channel, data) => ipcRenderer.send(channel, data),
+        on: (channel, callback) => ipcRenderer.on(channel, (_, data) => callback(data))
+    },
+
     // clients
     clients: {
         getAll: async () => ipcRenderer.invoke('clients:getAll'),

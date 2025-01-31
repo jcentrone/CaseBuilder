@@ -1,10 +1,11 @@
 import React from 'react';
-import {Link, Outlet, useLocation, useParams, useNavigate} from 'react-router-dom';
+import {Link, Outlet, useLocation, useNavigate, useParams} from 'react-router-dom';
 import {Box, Button, Grid, Paper, Tab, Tabs, Typography} from '@mui/material';
 
 import CaseForm from '../components/CaseForm';
 import DialogShell from '../components/DialogShell';
 import AddItemForm from '../components/AddItemForm';
+import Mammoth from "mammoth";
 
 
 export default function CaseDetail({setCurrentModule}) {
@@ -62,6 +63,15 @@ export default function CaseDetail({setCurrentModule}) {
         }
     }, [location, caseId, navigate]);
 
+    function buildSafeFileUrl(originalPath) {
+        // Replace backslashes with forward slashes
+        let normalizedPath = originalPath.replace(/\\/g, '/');
+        // Encode spaces and other special chars, but not slashes or colon
+        normalizedPath = encodeURI(normalizedPath);
+        // Then prepend 'safe-file:///'
+        return `safe-file:///${normalizedPath}`;
+    }
+
     async function fetchCaseData() {
         setLoading(true);
         try {
@@ -112,32 +122,39 @@ export default function CaseDetail({setCurrentModule}) {
     }
 
     const handleConfirmAddItem = async () => {
-        // 1) get the data from child
+        // 1) Get the data from child
         const itemData = addItemRef.current.getData();
 
-        // 2) pass the itemData to your existing logic
-        await handleAddItemSubmit(itemData);
+        // 2) Store in local DB first
+        const documentId = await handleAddItemSubmit(itemData);
+        console.log('Document ID:', documentId);
+        // 3) If successful, process and send embeddings
+        if (documentId) {
+            await processAndSendChunks(itemData);
+
+            // Re-fetch case data to update the documents list
+            await fetchCaseData();
+        }
     };
 
     const handleAddItemSubmit = async (itemData) => {
         console.log('[CaseDetail] Submitting itemData:', itemData);
 
         try {
-            let result
+            let result;
 
             if (itemData.category === 'Document') {
                 result = await window.electronAPI.documents.add({
-                    id: itemData.id,
-                    caseId: caseId,            // you need to pass the current caseId
-                    type: 'Document',          // or however you're categorizing
+                    documentId: itemData.documentId,
+                    caseId: caseId,
+                    type: 'Document',
                     filePath: itemData.filePath,
                     fileName: itemData.fileName,
                     dateAdded: itemData.dateAdded,
                 });
             } else {
-                // Evidence
                 result = await window.electronAPI.evidence.add({
-                    id: itemData.id,
+                    documentId: itemData.documentId,
                     caseId: caseId,
                     type: 'Evidence',
                     filePath: itemData.filePath,
@@ -145,17 +162,94 @@ export default function CaseDetail({setCurrentModule}) {
                     dateAdded: itemData.dateAdded,
                 });
             }
-
-            if (result === 'OK') {
-                // Reload case data or items (e.g., documents)
-                await fetchCaseData()
+            if (result && typeof result === "object" && result.documentId) {
+                return result.documentId; // Return the ID for processing
+            } else {
+                console.error("Failed to retrieve document ID.");
+                return null;
             }
+            // return result.documentId;
         } catch (error) {
-            console.error('Error adding case item:', error)
+            console.error('Error adding case item:', error);
+            return null;
         } finally {
-            setAddItemDialogOpen(false)
+            setAddItemDialogOpen(false);
         }
-    }
+    };
+
+    const processAndSendChunks = async (itemData) => {
+        try {
+            const safeFileUrl = buildSafeFileUrl(itemData.filePath); // Use safe-file protocol
+
+            console.log("Fetching document from:", safeFileUrl);
+
+            const response = await fetch(safeFileUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch document: ${response.statusText}`);
+            }
+
+            const buffer = await response.arrayBuffer();
+            const result = await Mammoth.extractRawText({arrayBuffer: buffer});
+
+            const extractedText = result.value;
+            console.log("Extracted Text:", extractedText);
+
+            // Chunk by paragraph
+            const chunks = chunkTextByParagraph(extractedText, 1000);
+            console.log("Generated Chunks:", chunks);
+
+            // Send each chunk with the stored document ID
+            await sendChunksToBackend(chunks, itemData.id);
+        } catch (error) {
+            console.error("Error processing document for embedding:", error);
+        }
+    };
+
+    const sendChunksToBackend = async (chunks, documentId) => {
+        const clientId = 1; // Replace with actual client_id
+
+        for (const chunk of chunks) {
+            try {
+                const response = await fetch("http://localhost:8000/store_chunk", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        document_id: documentId,
+                        text_chunk: chunk,
+                        document_name: `Document ${documentId}`,
+                    }),
+                });
+
+                const data = await response.json();
+                console.log("Stored Chunk:", data);
+            } catch (error) {
+                console.error("Error sending chunk to backend:", error);
+            }
+        }
+    };
+
+    const chunkTextByParagraph = (text, maxChunkSize = 1000) => {
+        const paragraphs = text.split(/\n\s*\n/); // Split on double line breaks
+        let chunks = [];
+        let currentChunk = "";
+
+        for (let paragraph of paragraphs) {
+            if (currentChunk.length + paragraph.length > maxChunkSize) {
+                chunks.push(currentChunk.trim());
+                currentChunk = paragraph;
+            } else {
+                currentChunk += "\n\n" + paragraph;
+            }
+        }
+
+        if (currentChunk.trim().length > 0) {
+            chunks.push(currentChunk.trim());
+        }
+
+        return chunks;
+    };
+
 
     if (loading) {
         return <Typography>Loading case data...</Typography>;
