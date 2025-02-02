@@ -234,6 +234,10 @@ app.whenReady().then(() => {
         console.error('Failed to register protocol:', error);
     }
 
+    ipcMain.on('user-settings-saved', (event, data) => {
+        console.log('User Settings Updated:', data);
+    });
+
 
     // IPC for File Dialog
     ipcMain.handle('dialog:showOpenDialog', async (event, options) => {
@@ -370,9 +374,6 @@ app.whenReady().then(() => {
         }
     });
 
-    ipcMain.on('user-settings-saved', (event, data) => {
-        console.log('User Settings Updated:', data);
-    });
 
     createWindow()
 

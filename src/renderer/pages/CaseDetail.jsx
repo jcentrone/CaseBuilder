@@ -197,37 +197,54 @@ export default function CaseDetail({setCurrentModule}) {
             // Chunk by paragraph
             const chunks = chunkTextByParagraph(extractedText, 1000);
             console.log("Generated Chunks:", chunks);
+            console.log("itemData:", itemData)
 
             // Send each chunk with the stored document ID
-            await sendChunksToBackend(chunks, itemData.id);
+            await sendChunksToBackend(chunks, itemData.documentId);
         } catch (error) {
             console.error("Error processing document for embedding:", error);
         }
     };
 
     const sendChunksToBackend = async (chunks, documentId) => {
-        const clientId = 1; // Replace with actual client_id
+        // Retrieve the stored customer from localStorage
+        const savedCustomer = localStorage.getItem("customer");
+        const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
+        console.log("Customer ID:", customerID);
+        console.log("Document ID:", documentId)
 
-        for (const chunk of chunks) {
-            try {
-                const response = await fetch("http://localhost:8000/store_chunk", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({
-                        client_id: clientId,
-                        document_id: documentId,
-                        text_chunk: chunk,
-                        document_name: `Document ${documentId}`,
-                    }),
-                });
 
-                const data = await response.json();
-                console.log("Stored Chunk:", data);
-            } catch (error) {
-                console.error("Error sending chunk to backend:", error);
-            }
+        if (!customerID) {
+            console.error("No customer_id found in local storage. Please ensure customer settings have been saved.");
+            return;
+        }
+
+        // Build a batch payload of chunks
+        const chunkBatch = chunks.map(chunk => ({
+            customer_id: customerID,
+            client_id: caseData.clientId,
+            case_id: caseId,
+            document_id: documentId,
+            text_chunk: chunk,
+            document_name: `Document ${documentId}`,
+        }));
+
+        console.log("Chunk Batch:", chunkBatch)
+
+        try {
+            const response = await fetch("http://localhost:8000/store_chunks", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({chunks: chunkBatch}),
+            });
+
+            const data = await response.json();
+            console.log("Stored Chunks:", data);
+        } catch (error) {
+            console.error("Error sending batch of chunks to backend:", error);
         }
     };
+
 
     const chunkTextByParagraph = (text, maxChunkSize = 1000) => {
         const paragraphs = text.split(/\n\s*\n/); // Split on double line breaks

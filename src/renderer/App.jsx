@@ -1,6 +1,6 @@
 // src/renderer/App.jsx
-import React, {useState, useEffect } from 'react'
-import {BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom'
+import React, {useEffect, useState} from 'react'
+import {BrowserRouter as Router, Route, Routes, useNavigate} from 'react-router-dom'
 import UserSettingsForm from "./components/UserSettingsForm";
 import Layout from './layout/Layout'
 import CasesList from './pages/CaseList'
@@ -19,12 +19,12 @@ function ElectronListener() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        window.electron?.ipcRenderer.on("open-user-profile", () => {
+        window.electronAPI?.ipcRenderer.on("open-user-profile", () => {
             navigate("/settings"); // Navigate to settings when menu option is clicked
         });
 
         return () => {
-            window.electron?.ipcRenderer.removeAllListeners("open-user-profile");
+            window.electronAPI?.ipcRenderer.removeAllListeners("open-user-profile");
         };
     }, [navigate]);
 
@@ -39,7 +39,7 @@ export default function App() {
 
     return (
         <Router>
-            <ElectronListener />
+            <ElectronListener/>
             <Layout currentModule={currentModule} setCurrentModule={setCurrentModule}>
                 <Routes>
                     <Route path="/cases" element={<CasesList/>}/>
@@ -59,6 +59,7 @@ export default function App() {
                     <Route path="/graph" element={<CaseGraph/>}/>
                     <Route path="/assistant" element={<CaseAssistant/>}/>
                     <Route path="/calendar" element={<CalendarPage/>}/>
+                    <Route path="/settings" element={<UserSettingsForm/>}/>
                     <Route path="*" element={<CasesList/>}/>
 
                 </Routes>
