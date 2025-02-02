@@ -250,16 +250,13 @@ app.whenReady().then(() => {
         // return the array of clients
         return getAllClients()
     })
-
     ipcMain.handle('clients:getOne', (event, clientId) => {
         return getClientById(clientId)
     })
-
     ipcMain.handle('clients:add', (event, clientData) => {
         addClient(clientData)
         return 'OK'
     })
-
     ipcMain.handle('clients:update', (event, clientData) => {
         updateClient(clientData)
         return 'OK'
@@ -278,11 +275,9 @@ app.whenReady().then(() => {
     ipcMain.handle('cases:getByClient', (event, clientId) => {
         return getCasesByClient(clientId)
     })
-
     ipcMain.handle('cases:getOne', (event, caseId) => {
         return getCaseById(caseId)
     })
-
     ipcMain.handle('cases:getAll', () => {
         // return the array of clients
         return getAllCases()
