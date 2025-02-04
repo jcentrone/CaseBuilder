@@ -5,8 +5,7 @@ import {Box, Button, Grid, Paper, Tab, Tabs, Typography} from '@mui/material';
 import CaseForm from '../components/CaseForm';
 import DialogShell from '../components/DialogShell';
 import AddItemForm from '../components/AddItemForm';
-import Mammoth from "mammoth";
-
+import Mammoth from 'mammoth';
 
 export default function CaseDetail({setCurrentModule}) {
     const navigate = useNavigate();
@@ -15,7 +14,7 @@ export default function CaseDetail({setCurrentModule}) {
     const [caseData, setCaseData] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
     const [editDialogOpen, setEditDialogOpen] = React.useState(false);
-    const [addItemDialogOpen, setAddItemDialogOpen] = React.useState(false)
+    const [addItemDialogOpen, setAddItemDialogOpen] = React.useState(false);
     const addItemRef = React.useRef(null);
 
     // Form fields
@@ -30,7 +29,8 @@ export default function CaseDetail({setCurrentModule}) {
     const [evidence, setEvidence] = React.useState([]);
 
     React.useEffect(() => {
-        fetchCaseData().then(r => '');
+        fetchCaseData().then(() => {
+        });
     }, [caseId]);
 
     React.useEffect(() => {
@@ -54,11 +54,8 @@ export default function CaseDetail({setCurrentModule}) {
     }, [caseData]);
 
     React.useEffect(() => {
-        // Check if there's no sub-route (like "/documents" or "/evidence")
-        // A simple check is: if it ends with just the caseId, redirect to "/documents".
-        if (
-            location.pathname === `/cases/${caseId}`
-        ) {
+        // If the path is exactly "/cases/:caseId", redirect to "/documents"
+        if (location.pathname === `/cases/${caseId}`) {
             navigate('documents');
         }
     }, [location, caseId, navigate]);
@@ -66,7 +63,7 @@ export default function CaseDetail({setCurrentModule}) {
     function buildSafeFileUrl(originalPath) {
         // Replace backslashes with forward slashes
         let normalizedPath = originalPath.replace(/\\/g, '/');
-        // Encode spaces and other special chars, but not slashes or colon
+        // Encode spaces and other special chars, but not slashes or colons
         normalizedPath = encodeURI(normalizedPath);
         // Then prepend 'safe-file:///'
         return `safe-file:///${normalizedPath}`;
@@ -76,15 +73,15 @@ export default function CaseDetail({setCurrentModule}) {
         setLoading(true);
         try {
             const data = await window.electronAPI.cases.getOne(caseId);
-            // console.log('Fetched case data:', data);
             setCaseData(data);
+
             const docs = await window.electronAPI.documents.getByCase(caseId);
             setDocuments(docs);
+
             const evi = await window.electronAPI.evidence.getByCase(caseId);
             setEvidence(evi);
-
         } catch (error) {
-            // console.error('Error fetching case data:', error);
+            console.error('Error fetching case data:', error);
             setCaseData(null);
         } finally {
             setLoading(false);
@@ -100,27 +97,27 @@ export default function CaseDetail({setCurrentModule}) {
             caseType,
             courtName,
             caseNumber,
-            parties,
+            parties
         };
 
         try {
-            // console.log('Saving updated case:', updatedCase);
             await window.electronAPI.cases.update(caseId, updatedCase);
             console.log('Case updated in database.');
-
             await fetchCaseData(); // Refresh case data
             console.log('Case data refreshed.');
-
-            setEditDialogOpen(false); // Close dialog after refresh
+            setEditDialogOpen(false);
         } catch (error) {
             console.error('Error updating case:', error);
         }
     }
 
     const handleAddCaseItem = () => {
-        setAddItemDialogOpen(true)
-    }
+        setAddItemDialogOpen(true);
+    };
 
+    /**
+     * Called when the user confirms adding a new document/evidence item.
+     */
     const handleConfirmAddItem = async () => {
         // 1) Get the data from child
         const itemData = addItemRef.current.getData();
@@ -128,21 +125,24 @@ export default function CaseDetail({setCurrentModule}) {
         // 2) Store in local DB first
         const documentId = await handleAddItemSubmit(itemData);
         console.log('Document ID:', documentId);
-        // 3) If successful, process and send embeddings
-        if (documentId) {
-            await processAndSendChunks(itemData);
 
-            // Re-fetch case data to update the documents list
-            await fetchCaseData();
+        // 3) If successful, extract doc text and call our new chunk_and_store endpoint
+        if (documentId) {
+            itemData.documentId = documentId; // attach for the backend call
+            await processDocumentAndStore(itemData);
+            await fetchCaseData(); // Refresh the case data to see the new doc in the list
         }
     };
 
+    /**
+     * Stores metadata about the new doc/evidence in the local DB,
+     * returns the assigned documentId on success.
+     */
     const handleAddItemSubmit = async (itemData) => {
         console.log('[CaseDetail] Submitting itemData:', itemData);
 
         try {
             let result;
-
             if (itemData.category === 'Document') {
                 result = await window.electronAPI.documents.add({
                     documentId: itemData.documentId,
@@ -150,7 +150,7 @@ export default function CaseDetail({setCurrentModule}) {
                     type: 'Document',
                     filePath: itemData.filePath,
                     fileName: itemData.fileName,
-                    dateAdded: itemData.dateAdded,
+                    dateAdded: itemData.dateAdded
                 });
             } else {
                 result = await window.electronAPI.evidence.add({
@@ -159,16 +159,16 @@ export default function CaseDetail({setCurrentModule}) {
                     type: 'Evidence',
                     filePath: itemData.filePath,
                     fileName: itemData.fileName,
-                    dateAdded: itemData.dateAdded,
+                    dateAdded: itemData.dateAdded
                 });
             }
-            if (result && typeof result === "object" && result.documentId) {
-                return result.documentId; // Return the ID for processing
+
+            if (result && typeof result === 'object' && result.documentId) {
+                return result.documentId; // Return the new documentId
             } else {
-                console.error("Failed to retrieve document ID.");
+                console.error('Failed to retrieve document ID.');
                 return null;
             }
-            // return result.documentId;
         } catch (error) {
             console.error('Error adding case item:', error);
             return null;
@@ -177,11 +177,15 @@ export default function CaseDetail({setCurrentModule}) {
         }
     };
 
-    const processAndSendChunks = async (itemData) => {
+    /**
+     *  - Fetches the doc from the local file system (safe-file protocol).
+     *  - Extracts text using Mammoth.
+     *  - Sends the entire text + relevant IDs to /chunk_and_store for backend chunking + storage.
+     */
+    const processDocumentAndStore = async (itemData) => {
         try {
-            const safeFileUrl = buildSafeFileUrl(itemData.filePath); // Use safe-file protocol
-
-            console.log("Fetching document from:", safeFileUrl);
+            const safeFileUrl = buildSafeFileUrl(itemData.filePath);
+            console.log('Fetching document from:', safeFileUrl);
 
             const response = await fetch(safeFileUrl);
             if (!response.ok) {
@@ -190,83 +194,53 @@ export default function CaseDetail({setCurrentModule}) {
 
             const buffer = await response.arrayBuffer();
             const result = await Mammoth.extractRawText({arrayBuffer: buffer});
-
             const extractedText = result.value;
-            console.log("Extracted Text:", extractedText);
+            console.log('Extracted Text:', extractedText);
 
-            // Chunk by paragraph
-            const chunks = chunkTextByParagraph(extractedText, 1000);
-            console.log("Generated Chunks:", chunks);
-            console.log("itemData:", itemData)
+            // Retrieve the stored customer from localStorage
+            const savedCustomer = localStorage.getItem('customer');
+            const customerID = savedCustomer
+                ? JSON.parse(savedCustomer).client_id
+                : null;
+            if (!customerID) {
+                console.error(
+                    'No customer_id found in local storage. Please ensure customer settings have been saved.'
+                );
+                return;
+            }
 
-            // Send each chunk with the stored document ID
-            await sendChunksToBackend(chunks, itemData.documentId);
-        } catch (error) {
-            console.error("Error processing document for embedding:", error);
-        }
-    };
+            // Build the payload for /chunk_and_store
+            const payload = {
+                text: extractedText,
+                document_id: itemData.documentId,
+                doc_id: itemData.fileName, // or some other descriptive name
+                // Tweak these chunking parameters as needed:
+                similarity_threshold: 0.8,
+                min_chunk_size: 1,
+                max_chunk_size: 5,
+                customer_id: customerID,
+                case_id: caseId,
+                client_id: caseData?.clientId || null,
+                document_name: itemData.fileName
+            };
 
-    const sendChunksToBackend = async (chunks, documentId) => {
-        // Retrieve the stored customer from localStorage
-        const savedCustomer = localStorage.getItem("customer");
-        const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
-        console.log("Customer ID:", customerID);
-        console.log("Document ID:", documentId)
-
-
-        if (!customerID) {
-            console.error("No customer_id found in local storage. Please ensure customer settings have been saved.");
-            return;
-        }
-
-        // Build a batch payload of chunks
-        const chunkBatch = chunks.map(chunk => ({
-            customer_id: customerID,
-            client_id: caseData.clientId,
-            case_id: caseId,
-            document_id: documentId,
-            text_chunk: chunk,
-            document_name: `Document ${documentId}`,
-        }));
-
-        console.log("Chunk Batch:", chunkBatch)
-
-        try {
-            const response = await fetch("http://localhost:8000/store_chunks", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({chunks: chunkBatch}),
+            // POST to /chunk_and_store
+            const storeResponse = await fetch('http://localhost:8000/chunk_and_store', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
             });
 
-            const data = await response.json();
-            console.log("Stored Chunks:", data);
-        } catch (error) {
-            console.error("Error sending batch of chunks to backend:", error);
-        }
-    };
-
-
-    const chunkTextByParagraph = (text, maxChunkSize = 1000) => {
-        const paragraphs = text.split(/\n\s*\n/); // Split on double line breaks
-        let chunks = [];
-        let currentChunk = "";
-
-        for (let paragraph of paragraphs) {
-            if (currentChunk.length + paragraph.length > maxChunkSize) {
-                chunks.push(currentChunk.trim());
-                currentChunk = paragraph;
-            } else {
-                currentChunk += "\n\n" + paragraph;
+            if (!storeResponse.ok) {
+                throw new Error(`Error from /chunk_and_store: ${storeResponse.statusText}`);
             }
-        }
 
-        if (currentChunk.trim().length > 0) {
-            chunks.push(currentChunk.trim());
+            const storeData = await storeResponse.json();
+            console.log('Store Response:', storeData);
+        } catch (error) {
+            console.error('Error processing document and storing:', error);
         }
-
-        return chunks;
     };
-
 
     if (loading) {
         return <Typography>Loading case data...</Typography>;
@@ -276,6 +250,7 @@ export default function CaseDetail({setCurrentModule}) {
         return <Typography variant="h6">Case not found.</Typography>;
     }
 
+    // Determine which tab to highlight
     let tabValue = 0;
     if (location.pathname.endsWith('/documents')) tabValue = 0;
     if (location.pathname.endsWith('/evidence')) tabValue = 1;
@@ -304,11 +279,11 @@ export default function CaseDetail({setCurrentModule}) {
                             to={`/clients/${caseData.clientId}`}
                             sx={{
                                 textDecoration: 'none',
-                                color: 'inherit', // Inherit color from parent Typography
+                                color: 'inherit',
                                 cursor: 'pointer',
                                 '&:hover': {
-                                    textDecoration: 'underline', // Optional: Add underline on hover
-                                },
+                                    textDecoration: 'underline'
+                                }
                             }}
                         >
                             Client: {caseData.clientName || 'Unknown Client'}
@@ -331,14 +306,15 @@ export default function CaseDetail({setCurrentModule}) {
                     sx={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
+                        alignItems: 'center'
                     }}
                 >
                     <Button
                         variant="contained"
                         color="primary"
                         sx={{mt: 2}}
-                        onClick={handleAddCaseItem}>
+                        onClick={handleAddCaseItem}
+                    >
                         Add Case Item
                     </Button>
                     <Button
@@ -349,10 +325,7 @@ export default function CaseDetail({setCurrentModule}) {
                     >
                         Edit Case Details
                     </Button>
-
                 </Box>
-
-
             </Paper>
 
             {/* Sub-navigation with Tabs */}
