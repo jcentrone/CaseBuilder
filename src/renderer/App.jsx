@@ -13,6 +13,7 @@ import CaseGraph from './pages/CaseGraph'
 import CaseAssistant from './pages/CaseAssistant'
 import CalendarPage from "./pages/CalendarPage"
 import CaseForm from "./components/CaseForm"
+import LawChunkViewer from "./pages/LawChunkViewer";
 
 
 function ElectronListener() {
@@ -58,6 +59,7 @@ export default function App() {
                     <Route path="/documents" element={<CaseDocuments/>}/>
                     <Route path="/graph" element={<CaseGraph/>}/>
                     <Route path="/assistant" element={<CaseAssistant/>}/>
+                    <Route path="/visualizer" element={<LawChunkViewer/>}/>
                     <Route path="/calendar" element={<CalendarPage/>}/>
                     <Route path="/settings" element={<UserSettingsForm/>}/>
                     <Route path="*" element={<CasesList/>}/>

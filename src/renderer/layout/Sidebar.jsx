@@ -45,6 +45,19 @@ export default function Sidebar({ setCurrentModule }) {
                 </ListItem>
                 <ListItem disablePadding>
                     <ListItemButton
+                        onClick={handleNavigation('Visualizer', '/visualizer')}
+                        sx={{
+                            backgroundColor: isActive('/visualizer') ? 'rgba(0, 123, 255, 0.1)' : 'transparent',
+                            '&:hover': {
+                                backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                            },
+                        }}
+                    >
+                        <ListItemText primary="Visualizer" />
+                    </ListItemButton>
+                </ListItem>
+                <ListItem disablePadding>
+                    <ListItemButton
                         onClick={handleNavigation('Clients', '/clients')}
                         sx={{
                             backgroundColor: isActive('/clients') ? 'rgba(0, 123, 255, 0.1)' : 'transparent',

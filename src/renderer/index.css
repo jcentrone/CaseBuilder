@@ -1,3 +1,4 @@
-/*#root{*/
-/*    margin: 100px;*/
-/*}*/
+.my-canvas canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
