@@ -5,7 +5,7 @@ import {Box, Button, Grid, Paper, Tab, Tabs, Typography} from '@mui/material';
 import CaseForm from '../components/CaseForm';
 import DialogShell from '../components/DialogShell';
 import AddItemForm from '../components/AddItemForm';
-import Mammoth from 'mammoth';
+import Mammoth from "mammoth";
 
 export default function CaseDetail({setCurrentModule}) {
     const navigate = useNavigate();
@@ -86,6 +86,41 @@ export default function CaseDetail({setCurrentModule}) {
         } finally {
             setLoading(false);
         }
+    }
+
+    async function extractTextFromFile(filePath) {
+        const fileType = filePath.split('.').pop().toLowerCase();
+        const safeFileUrl = buildSafeFileUrl(filePath);
+        let extractedText = '';
+
+        if (fileType === 'docx') {
+            const response = await fetch(safeFileUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch DOCX file: ${response.statusText}`);
+            }
+            const buffer = await response.arrayBuffer();
+            const result = await Mammoth.extractRawText({arrayBuffer: buffer});
+            extractedText = result.value;
+        } else if (fileType === 'pdf') {
+            // Dynamically import pdfjs-dist to avoid bundling it unnecessarily for other file types
+            const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
+            // Set the workerSrc if needed (adjust the path as necessary)
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+            const loadingTask = pdfjsLib.getDocument(safeFileUrl);
+            const pdf = await loadingTask.promise;
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                // Combine all text items on the page
+                const pageText = textContent.items.map((item) => item.str).join(' ');
+                extractedText += pageText + '\n';
+            }
+        } else {
+            throw new Error(`File type ${fileType} not supported for text extraction.`);
+        }
+
+        return extractedText;
     }
 
     async function handleSaveCase() {
@@ -187,25 +222,15 @@ export default function CaseDetail({setCurrentModule}) {
             const safeFileUrl = buildSafeFileUrl(itemData.filePath);
             console.log('Fetching document from:', safeFileUrl);
 
-            const response = await fetch(safeFileUrl);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch document: ${response.statusText}`);
-            }
-
-            const buffer = await response.arrayBuffer();
-            const result = await Mammoth.extractRawText({arrayBuffer: buffer});
-            const extractedText = result.value;
+            // Use the unified text extraction utility
+            const extractedText = await extractTextFromFile(itemData.filePath);
             console.log('Extracted Text:', extractedText);
 
             // Retrieve the stored customer from localStorage
             const savedCustomer = localStorage.getItem('customer');
-            const customerID = savedCustomer
-                ? JSON.parse(savedCustomer).client_id
-                : null;
+            const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
             if (!customerID) {
-                console.error(
-                    'No customer_id found in local storage. Please ensure customer settings have been saved.'
-                );
+                console.error('No customer_id found in local storage. Please ensure customer settings have been saved.');
                 return;
             }
 
@@ -214,7 +239,6 @@ export default function CaseDetail({setCurrentModule}) {
                 text: extractedText,
                 document_id: itemData.documentId,
                 doc_id: itemData.fileName, // or some other descriptive name
-                // Tweak these chunking parameters as needed:
                 similarity_threshold: 0.8,
                 min_chunk_size: 1,
                 max_chunk_size: 5,
@@ -241,6 +265,7 @@ export default function CaseDetail({setCurrentModule}) {
             console.error('Error processing document and storing:', error);
         }
     };
+
 
     if (loading) {
         return <Typography>Loading case data...</Typography>;

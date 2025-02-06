@@ -1,20 +1,82 @@
 import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {
-    Box,
-    Button,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Select,
-    TextField,
-    Typography,
-    IconButton,
-    Drawer,
-    Divider
+  Box,
+  Button,
+  Divider,
+  Drawer,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField,
+  Typography
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
 
+/**
+ * Drawer component to display each supporting chunk with its related law chunks.
+ */
+function ChunksDrawer({open, onClose, relatedChunks = []}) {
+    return (
+        <Drawer
+            anchor="right"
+            open={open}
+            onClose={onClose}
+            PaperProps={{sx: {width: 400, top: 65, height: "calc(100% - 65px)"}}}
+        >
+            <Box sx={{p: 2, height: "100%", overflowY: "auto"}}>
+                <Typography variant="h6" gutterBottom>
+                    Document & Relevant Law
+                </Typography>
+                <Divider sx={{mb: 2}}/>
+                {relatedChunks.length === 0 ? (
+                    <Typography variant="body2">No related chunks available.</Typography>
+                ) : (
+                    relatedChunks.map((item, index) => (
+                        <Box
+                            key={index}
+                            sx={{mb: 2, p: 1, border: "1px solid #ccc", borderRadius: 1}}
+                        >
+                            <Typography variant="subtitle1">
+                                <strong>Document:</strong> {item.supporting_chunk.name}
+                            </Typography>
+                            <Typography variant="body2">
+                                {item.supporting_chunk.matched_text}
+                            </Typography>
+                            <Box sx={{pl: 2, mt: 1}}>
+                                {item.law_chunks && item.law_chunks.length > 0 ? (
+                                    item.law_chunks.map((law, idx) => (
+                                        <Box
+                                            key={idx}
+                                            sx={{mb: 1, borderLeft: "2px solid #ccc", pl: 1}}
+                                        >
+                                            <Typography variant="caption">
+                                                <strong>Law:</strong> {law.name}
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                {law.matched_text}
+                                            </Typography>
+                                        </Box>
+                                    ))
+                                ) : (
+                                    <Typography variant="caption">
+                                        No relevant law found.
+                                    </Typography>
+                                )}
+                            </Box>
+                        </Box>
+                    ))
+                )}
+            </Box>
+        </Drawer>
+    );
+}
+
+/**
+ * Main Case Assistant component.
+ */
 export default function CaseAssistant() {
     const {clientId} = useParams();
     const [cases, setCases] = useState([]);
@@ -23,13 +85,12 @@ export default function CaseAssistant() {
     // The user's current input for new messages
     const [query, setQuery] = useState("");
 
-    // A running history of all messages in the conversation
-    // Each message has: { role: "user"|"assistant", content: string, supportingChunks?: array }
+    // Conversation history: Each message has role, content, and for assistant messages, related_chunks.
     const [messages, setMessages] = useState([]);
 
-    // For the sidebar/drawer that displays supporting chunks
+    // State for the drawer that displays related chunks.
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [selectedChunks, setSelectedChunks] = useState([]);
+    const [drawerRelatedChunks, setDrawerRelatedChunks] = useState([]);
 
     useEffect(() => {
         async function fetchCases() {
@@ -37,7 +98,7 @@ export default function CaseAssistant() {
                 const data = await window.electronAPI.cases.getAll();
                 setCases(data || []);
 
-                // If there's at least one case, set it as the default selected
+                // If there's at least one case, set it as the default selected.
                 if (data && data.length > 0 && data[0].id) {
                     setSelectedCase({
                         case_id: data[0].id,
@@ -53,10 +114,10 @@ export default function CaseAssistant() {
     }, [clientId]);
 
     /**
-     * Handler when the user clicks "Send" or "Ask"
+     * Handler to send a query.
      */
     const handleSend = async () => {
-        // Make sure we have a customer_id
+        // Ensure customer information is available.
         const savedCustomer = localStorage.getItem("customer");
         const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
 
@@ -70,14 +131,14 @@ export default function CaseAssistant() {
             return;
         }
 
-        // 1) Add the user message to the chat history
+        // Add the user message to conversation history.
         const userMessage = {
             role: "user",
             content: query,
         };
         setMessages((prev) => [...prev, userMessage]);
 
-        // 2) Prepare the payload for the backend RAG endpoint
+        // Prepare payload for the backend RAG endpoint.
         const payload = {
             client_id: selectedCase.client_id,
             customer_id: customerID,
@@ -86,31 +147,28 @@ export default function CaseAssistant() {
             top_k: 3,
         };
 
-        // Clear the input field immediately (optional)
+        // Clear the input field.
         setQuery("");
 
         try {
-            // 3) Call the backend for an answer
+            // Call the backend query endpoint.
             const response = await fetch("http://localhost:8000/query", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(payload),
             });
-
             const data = await response.json();
 
-            // 4) Add the assistant message to the chat history
+            // Add assistant message to conversation history,
+            // including the related_chunks from the response.
             const assistantMessage = {
                 role: "assistant",
                 content: data.final_answer,
-                supportingChunks: data.supporting_chunks || []
+                related_chunks: data.related_chunks || []
             };
             setMessages((prev) => [...prev, assistantMessage]);
         } catch (err) {
             console.error("Error querying:", err);
-            // Optionally add an error assistant message
             setMessages((prev) => [
                 ...prev,
                 {role: "assistant", content: "Sorry, something went wrong."}
@@ -119,15 +177,15 @@ export default function CaseAssistant() {
     };
 
     /**
-     * Opens the drawer and sets the supporting chunks to display.
+     * Opens the drawer with the related chunks from an assistant message.
      */
-    const handleShowSupportingChunks = (chunks) => {
-        setSelectedChunks(chunks);
+    const handleShowRelatedChunks = (relatedChunks) => {
+        setDrawerRelatedChunks(relatedChunks);
         setIsDrawerOpen(true);
     };
 
     /**
-     * Renders the chat bubbles for each message in the `messages` array.
+     * Renders chat messages as styled chat bubbles.
      */
     const renderChatMessages = () => {
         return messages.map((msg, idx) => {
@@ -152,12 +210,12 @@ export default function CaseAssistant() {
                         }}
                     >
                         <Typography variant="body1">{msg.content}</Typography>
-                        {/* If it's an assistant message with supporting chunks, show an icon */}
-                        {msg.role === "assistant" && msg.supportingChunks && msg.supportingChunks.length > 0 && (
+                        {/* For assistant messages with related chunks, show an info icon */}
+                        {msg.role === "assistant" && msg.related_chunks && msg.related_chunks.length > 0 && (
                             <IconButton
                                 size="small"
                                 sx={{position: "absolute", top: 4, right: -40}}
-                                onClick={() => handleShowSupportingChunks(msg.supportingChunks)}
+                                onClick={() => handleShowRelatedChunks(msg.related_chunks)}
                             >
                                 <InfoIcon fontSize="small"/>
                             </IconButton>
@@ -187,7 +245,7 @@ export default function CaseAssistant() {
                                 if (selected) {
                                     setSelectedCase({
                                         case_id: selected.id,
-                                        client_id: selected.clientId
+                                        client_id: selected.clientId,
                                     });
                                 }
                             }}
@@ -217,7 +275,7 @@ export default function CaseAssistant() {
                     {renderChatMessages()}
                 </Box>
 
-                {/* Input area to send new messages */}
+                {/* Input area */}
                 <Box sx={{mt: 2, display: "flex"}}>
                     <TextField
                         label="Ask about this case..."
@@ -225,7 +283,6 @@ export default function CaseAssistant() {
                         onChange={(e) => setQuery(e.target.value)}
                         sx={{flex: 1, mr: 2}}
                         onKeyDown={(e) => {
-                            // Optional: Send message on Enter
                             if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();
                                 handleSend();
@@ -238,43 +295,12 @@ export default function CaseAssistant() {
                 </Box>
             </Box>
 
-            {/* Drawer for supporting chunks on the right side */}
-            <Drawer
-                anchor="right"
+            {/* Drawer for displaying related supporting chunks and law chunks */}
+            <ChunksDrawer
                 open={isDrawerOpen}
                 onClose={() => setIsDrawerOpen(false)}
-                PaperProps={{sx: {width: 400}}}
-            >
-                <Box sx={{p: 2, height: "100%"}}>
-                    <Typography variant="h6" gutterBottom>
-                        Supporting Documents
-                    </Typography>
-                    <Divider sx={{mb: 2}}/>
-                    {selectedChunks.length > 0 ? (
-                        selectedChunks.map((chunk, index) => (
-                            <Box
-                                key={index}
-                                sx={{mb: 2, p: 1, border: "1px solid #ccc", borderRadius: 1}}
-                            >
-                                <Typography variant="body2">
-                                    <strong>Document:</strong> {chunk.document_id}
-                                </Typography>
-                                <Typography variant="body2">
-                                    <strong>Score:</strong>{" "}
-                                    {chunk.similarity_score?.toFixed
-                                        ? chunk.similarity_score.toFixed(3)
-                                        : chunk.similarity_score}
-                                </Typography>
-                                <Typography variant="body2" sx={{mt: 1}}>
-                                    {chunk.matched_text}
-                                </Typography>
-                            </Box>
-                        ))
-                    ) : (
-                        <Typography variant="body2">No supporting chunks.</Typography>
-                    )}
-                </Box>
-            </Drawer>
+                relatedChunks={drawerRelatedChunks}
+            />
         </Box>
     );
 }
