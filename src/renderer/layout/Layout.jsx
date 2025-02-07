@@ -43,7 +43,7 @@ export default function Layout({children, currentModule, setCurrentModule}) {
                     sx={{
                         flexGrow: 1,
                         bgcolor: 'background.default',
-                        p: 3, // Padding for content
+                        p: 0, // Padding for content
                     }}
                 >
                     {children}

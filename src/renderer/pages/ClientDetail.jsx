@@ -96,7 +96,8 @@ export default function ClientDetail({setCurrentModule}) {
     }
 
     return (
-        <Box>
+        <Box sx={{p: 3,}}>
+
             <Paper elevation={3} sx={{p: 3, mb: 3}}>
                 <Grid container spacing={2}>
                     {/* Client Name */}

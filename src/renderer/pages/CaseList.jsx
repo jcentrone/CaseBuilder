@@ -1,18 +1,6 @@
 import React from 'react'
 import {useNavigate} from 'react-router-dom'
-import {
-    Box,
-    Button,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableRow,
-    TextField,
-    Typography
-} from '@mui/material'
-import {Visibility} from '@mui/icons-material'
+import {Box, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography} from '@mui/material'
 
 export default function CasesList() {
     const navigate = useNavigate()
@@ -36,7 +24,7 @@ export default function CasesList() {
     }, [filterText, casesData])
 
     return (
-        <Box>
+        <Box sx={{ p: 3,}}>
             <Typography variant="h4" gutterBottom>
                 Cases
             </Typography>

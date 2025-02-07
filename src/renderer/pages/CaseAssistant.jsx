@@ -227,7 +227,7 @@ export default function CaseAssistant() {
     };
 
     return (
-        <Box sx={{display: "flex", width: "100%", height: "100%"}}>
+        <Box sx={{display: "flex", width: "100%", height: "100%", p: 3}}>
             {/* Main content area */}
             <Box sx={{flex: 1, display: "flex", flexDirection: "column", p: 2}}>
                 <Typography variant="h6">Case Assistant</Typography>

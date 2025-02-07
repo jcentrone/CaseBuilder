@@ -142,7 +142,7 @@ export default function Clients() {
     }, [filterText, clientList])
 
     return (
-        <Box>
+        <Box sx={{ p: 3,}}>
             <Typography variant="h4" gutterBottom>
                 Clients
             </Typography>
