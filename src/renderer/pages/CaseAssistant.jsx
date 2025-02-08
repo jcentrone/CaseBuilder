@@ -1,35 +1,54 @@
+// CaseAssistant.jsx
 import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Divider,
-  Drawer,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-  Typography
-} from '@mui/material';
+import {Box, Button, Divider, Drawer, IconButton, TextField, Typography} from '@mui/material';
 import InfoIcon from '@mui/icons-material/Info';
+import {openDB} from 'idb';
+import {v4 as uuidv4} from 'uuid';
+import ChatSidebar from '../components/ChatSidebar';
 
-/**
- * Drawer component to display each supporting chunk with its related law chunks.
- */
+// IndexedDB Setup & Helper Functions
+const dbPromise = openDB('chat-db', 2, {
+    upgrade(db) {
+        if (!db.objectStoreNames.contains('chatThreads')) {
+            const store = db.createObjectStore('chatThreads', {keyPath: 'threadId'});
+            store.createIndex('case_id', 'case_id', {unique: false});
+        }
+    },
+});
+
+async function getChatThreadsForCase(caseId) {
+    const db = await dbPromise;
+    return await db.getAllFromIndex('chatThreads', 'case_id', caseId);
+}
+
+async function saveChatThread(thread) {
+    const db = await dbPromise;
+    await db.put('chatThreads', thread);
+}
+
+async function createNewChatThread(caseId) {
+    const newThread = {
+        threadId: uuidv4(),
+        case_id: caseId,
+        messages: [],
+        createdAt: new Date().toISOString()
+    };
+    await saveChatThread(newThread);
+    return newThread;
+}
+
+// Drawer Component for Supporting Docs / Related Chunks
 function ChunksDrawer({open, onClose, relatedChunks = []}) {
     return (
         <Drawer
             anchor="right"
             open={open}
             onClose={onClose}
-            PaperProps={{sx: {width: 400, top: 65, height: "calc(100% - 65px)"}}}
+            PaperProps={{sx: {width: 400, top: 65, height: "calc(100% - 65px)", backgroundColor: 'background.paper'}}}
         >
             <Box sx={{p: 2, height: "100%", overflowY: "auto"}}>
-                <Typography variant="h6" gutterBottom>
-                    Document & Relevant Law
-                </Typography>
+                <Typography variant="h6" gutterBottom>Document & Relevant Law</Typography>
                 <Divider sx={{mb: 2}}/>
                 {relatedChunks.length === 0 ? (
                     <Typography variant="body2">No related chunks available.</Typography>
@@ -37,7 +56,7 @@ function ChunksDrawer({open, onClose, relatedChunks = []}) {
                     relatedChunks.map((item, index) => (
                         <Box
                             key={index}
-                            sx={{mb: 2, p: 1, border: "1px solid #ccc", borderRadius: 1}}
+                            sx={{mb: 2, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1}}
                         >
                             <Typography variant="subtitle1">
                                 <strong>Document:</strong> {item.supporting_chunk.name}
@@ -50,20 +69,16 @@ function ChunksDrawer({open, onClose, relatedChunks = []}) {
                                     item.law_chunks.map((law, idx) => (
                                         <Box
                                             key={idx}
-                                            sx={{mb: 1, borderLeft: "2px solid #ccc", pl: 1}}
+                                            sx={{mb: 1, borderLeft: '2px solid', borderColor: 'divider', pl: 1}}
                                         >
                                             <Typography variant="caption">
                                                 <strong>Law:</strong> {law.name}
                                             </Typography>
-                                            <Typography variant="body2">
-                                                {law.matched_text}
-                                            </Typography>
+                                            <Typography variant="body2">{law.matched_text}</Typography>
                                         </Box>
                                     ))
                                 ) : (
-                                    <Typography variant="caption">
-                                        No relevant law found.
-                                    </Typography>
+                                    <Typography variant="caption">No relevant law found.</Typography>
                                 )}
                             </Box>
                         </Box>
@@ -74,36 +89,25 @@ function ChunksDrawer({open, onClose, relatedChunks = []}) {
     );
 }
 
-/**
- * Main Case Assistant component.
- */
 export default function CaseAssistant() {
     const {clientId} = useParams();
     const [cases, setCases] = useState([]);
-    const [selectedCase, setSelectedCase] = useState("");
-
-    // The user's current input for new messages
+    const [selectedCase, setSelectedCase] = useState(null);
+    const [chatThreads, setChatThreads] = useState([]);
+    const [currentThread, setCurrentThread] = useState(null);
     const [query, setQuery] = useState("");
-
-    // Conversation history: Each message has role, content, and for assistant messages, related_chunks.
-    const [messages, setMessages] = useState([]);
-
-    // State for the drawer that displays related chunks.
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [drawerRelatedChunks, setDrawerRelatedChunks] = useState([]);
 
+    // Load cases on mount.
     useEffect(() => {
         async function fetchCases() {
             try {
                 const data = await window.electronAPI.cases.getAll();
                 setCases(data || []);
-
-                // If there's at least one case, set it as the default selected.
                 if (data && data.length > 0 && data[0].id) {
-                    setSelectedCase({
-                        case_id: data[0].id,
-                        client_id: data[0].clientId,
-                    });
+                    const defaultCase = {case_id: data[0].id, client_id: data[0].clientId};
+                    setSelectedCase(defaultCase);
                 }
             } catch (err) {
                 console.error("Error fetching cases:", err);
@@ -113,109 +117,126 @@ export default function CaseAssistant() {
         fetchCases();
     }, [clientId]);
 
-    /**
-     * Handler to send a query.
-     */
+    // When the selected case changes, load its chat threads.
+    useEffect(() => {
+        if (selectedCase && selectedCase.case_id) {
+            getChatThreadsForCase(selectedCase.case_id).then((threads) => {
+                setChatThreads(threads);
+                if (threads.length > 0) {
+                    setCurrentThread(threads[0]);
+                } else {
+                    createNewChatThread(selectedCase.case_id).then((newThread) => {
+                        setChatThreads([newThread]);
+                        setCurrentThread(newThread);
+                    });
+                }
+            });
+        }
+    }, [selectedCase]);
+
+    // Update current thread in state and IndexedDB.
+    const updateCurrentThread = async (updatedThread) => {
+        setCurrentThread(updatedThread);
+        setChatThreads((prev) =>
+            prev.map(thread => (thread.threadId === updatedThread.threadId ? updatedThread : thread))
+        );
+        await saveChatThread(updatedThread);
+    };
+
+    const handleNewThread = async () => {
+        if (!selectedCase || !selectedCase.case_id) return null;
+        const newThread = await createNewChatThread(selectedCase.case_id);
+        setChatThreads(prev => [...prev, newThread]);
+        setCurrentThread(newThread);
+        return newThread;
+    };
+
     const handleSend = async () => {
-        // Ensure customer information is available.
         const savedCustomer = localStorage.getItem("customer");
         const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
-
         if (!customerID) {
-            console.error("No customer_id found in local storage. Please ensure customer settings have been saved.");
+            console.error("No customer_id found in local storage.");
             return;
         }
-
         if (!selectedCase || !selectedCase.case_id || !selectedCase.client_id) {
-            console.error("No valid case selected. Please select a case.");
+            console.error("No valid case selected.");
             return;
         }
+        let activeThread = currentThread;
+        if (!activeThread) {
+            activeThread = await handleNewThread();
+            if (!activeThread) return;
+        }
 
-        // Add the user message to conversation history.
-        const userMessage = {
-            role: "user",
-            content: query,
-        };
-        setMessages((prev) => [...prev, userMessage]);
+        const userMessage = {role: "user", content: query};
+        const updatedMessages = [...activeThread.messages, userMessage];
+        const updatedThread = {...activeThread, messages: updatedMessages};
+        await updateCurrentThread(updatedThread);
 
-        // Prepare payload for the backend RAG endpoint.
+        // Prepare payload with the full conversation history.
         const payload = {
             client_id: selectedCase.client_id,
             customer_id: customerID,
             case_id: selectedCase.case_id,
             query: query,
             top_k: 3,
+            history: updatedMessages,
         };
 
-        // Clear the input field.
         setQuery("");
 
         try {
-            // Call the backend query endpoint.
             const response = await fetch("http://localhost:8000/query", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(payload),
             });
             const data = await response.json();
-
-            // Add assistant message to conversation history,
-            // including the related_chunks from the response.
             const assistantMessage = {
                 role: "assistant",
                 content: data.final_answer,
-                related_chunks: data.related_chunks || []
+                related_chunks: data.related_chunks || [],
             };
-            setMessages((prev) => [...prev, assistantMessage]);
+            const newMessages = [...updatedMessages, assistantMessage];
+            const newThread = {...activeThread, messages: newMessages};
+            await updateCurrentThread(newThread);
         } catch (err) {
             console.error("Error querying:", err);
-            setMessages((prev) => [
-                ...prev,
-                {role: "assistant", content: "Sorry, something went wrong."}
-            ]);
+            const errorMsg = {role: "assistant", content: "Sorry, something went wrong."};
+            const newMessages = [...updatedMessages, errorMsg];
+            const newThread = {...activeThread, messages: newMessages};
+            await updateCurrentThread(newThread);
         }
     };
 
-    /**
-     * Opens the drawer with the related chunks from an assistant message.
-     */
-    const handleShowRelatedChunks = (relatedChunks) => {
-        setDrawerRelatedChunks(relatedChunks);
-        setIsDrawerOpen(true);
-    };
-
-    /**
-     * Renders chat messages as styled chat bubbles.
-     */
     const renderChatMessages = () => {
-        return messages.map((msg, idx) => {
+        if (!currentThread) return null;
+        return currentThread.messages.map((msg, idx) => {
             const isUser = msg.role === "user";
             return (
-                <Box
-                    key={idx}
-                    sx={{
-                        display: "flex",
-                        flexDirection: isUser ? "row-reverse" : "row",
-                        mb: 2,
-                    }}
-                >
+                <Box key={idx} sx={{display: "flex", flexDirection: isUser ? "row-reverse" : "row", mb: 2}}>
                     <Box
                         sx={{
-                            backgroundColor: isUser ? "#1976d2" : "#e0e0e0",
-                            color: isUser ? "#fff" : "#000",
+                            backgroundColor: isUser ? 'rgba(0, 123, 255, 0.3)' : "#2F2F2F",
+                            color: isUser ? "#fff" : "#B4B4B4",
                             borderRadius: "12px",
                             padding: "8px 12px",
-                            maxWidth: "70%",
-                            position: "relative"
+                            maxWidth: "60%",
+                            position: "relative",
+                            border: '0px solid',
+                            borderColor: 'divider',
+                            height: 'fit-content'
                         }}
                     >
                         <Typography variant="body1">{msg.content}</Typography>
-                        {/* For assistant messages with related chunks, show an info icon */}
                         {msg.role === "assistant" && msg.related_chunks && msg.related_chunks.length > 0 && (
                             <IconButton
                                 size="small"
                                 sx={{position: "absolute", top: 4, right: -40}}
-                                onClick={() => handleShowRelatedChunks(msg.related_chunks)}
+                                onClick={() => {
+                                    setDrawerRelatedChunks(msg.related_chunks);
+                                    setIsDrawerOpen(true);
+                                }}
                             >
                                 <InfoIcon fontSize="small"/>
                             </IconButton>
@@ -227,55 +248,33 @@ export default function CaseAssistant() {
     };
 
     return (
-        <Box sx={{display: "flex", width: "100%", height: "100%", p: 3}}>
-            {/* Main content area */}
-            <Box sx={{flex: 1, display: "flex", flexDirection: "column", p: 2}}>
-                <Typography variant="h6">Case Assistant</Typography>
+        <Box sx={{display: "flex"}}>
+            <Box sx={{width: 300, flexShrink: 0, position: 'fixed', paddingTop: 3, height: '100%'}}>
+                <ChatSidebar
+                    cases={cases}
+                    chatThreads={chatThreads}
+                    currentThread={currentThread}
+                    onSelectCase={setSelectedCase}
+                    onSelectThread={setCurrentThread}
+                    onNewThread={handleNewThread}
 
-                {/* Case selection */}
-                <Box sx={{mt: 2, display: "flex", alignItems: "center"}}>
-                    <FormControl sx={{minWidth: 200, mr: 2}}>
-                        <InputLabel id="case-select-label">Select Case</InputLabel>
-                        <Select
-                            labelId="case-select-label"
-                            value={selectedCase?.case_id || ""}
-                            label="Select Case"
-                            onChange={(e) => {
-                                const selected = cases.find((c) => c.id === e.target.value);
-                                if (selected) {
-                                    setSelectedCase({
-                                        case_id: selected.id,
-                                        client_id: selected.clientId,
-                                    });
-                                }
-                            }}
-                        >
-                            {cases.map((c) => (
-                                <MenuItem key={c.id} value={c.id}>
-                                    {c.caseName}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </Box>
-
-                {/* Chat area */}
+                />
+            </Box>
+            <Box sx={{marginLeft: 40, flex: 1, display: "flex", height: '100vh', paddingTop: '70px !important', flexDirection: "column", p: 2, backgroundColor: 'background.default'}}>
+                {/*<Typography variant="h6">Case Assistant</Typography>*/}
                 <Box
                     sx={{
                         flex: 1,
                         overflowY: "auto",
-                        display: "flex",
-                        flexDirection: "column",
-                        mt: 2,
-                        border: "1px solid #ccc",
+                        border: '1px solid',
+                        borderColor: 'divider',
                         borderRadius: "4px",
                         p: 2,
+                        mt: 2,
                     }}
                 >
                     {renderChatMessages()}
                 </Box>
-
-                {/* Input area */}
                 <Box sx={{mt: 2, display: "flex"}}>
                     <TextField
                         label="Ask about this case..."
@@ -294,8 +293,6 @@ export default function CaseAssistant() {
                     </Button>
                 </Box>
             </Box>
-
-            {/* Drawer for displaying related supporting chunks and law chunks */}
             <ChunksDrawer
                 open={isDrawerOpen}
                 onClose={() => setIsDrawerOpen(false)}

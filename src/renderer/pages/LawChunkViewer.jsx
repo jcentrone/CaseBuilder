@@ -22,7 +22,7 @@ import LawChunkModal from '../components/LawChunkModal';
 
 // IndexedDB constants
 const DB_NAME = "LawChunksDB";
-const DB_VERSION = 1;
+const DB_VERSION = 11;
 const STORAGE_KEY = "law_chunks";
 const VERSION_KEY = "law_chunks_version";
 
@@ -36,7 +36,7 @@ const MenuProps = {
     },
 };
 
-// If the backend provides a cluster_color, we use it; otherwise, compute fallback using position.
+// Use the backend cluster_color if provided; otherwise, compute a fallback.
 function getOctantColor(position) {
     const [x, y, z] = position;
     let color;
@@ -62,7 +62,7 @@ function getOctantColor(position) {
     return color;
 }
 
-// Helper: Compute Euclidean distance between two 3D points.
+// Compute Euclidean distance between two 3D points.
 function distance(pos1, pos2) {
     return Math.sqrt(
         (pos1[0] - pos2[0]) ** 2 +
@@ -71,11 +71,10 @@ function distance(pos1, pos2) {
     );
 }
 
-// Compute edges from a list of nodes.
-// Here, for each node we connect to its nearest neighbor (if within a threshold).
+// Compute edges from a list of nodes. Here we connect each node to its nearest neighbor if within a threshold.
 function computeEdges(nodes) {
     const edges = [];
-    const threshold = 1.0; // Adjust as needed
+    const threshold = 1.0; // Adjust threshold as needed.
     for (let i = 0; i < nodes.length; i++) {
         let bestDistance = Infinity;
         let bestIndex = -1;
@@ -95,7 +94,6 @@ function computeEdges(nodes) {
 }
 
 // InstancedPoints renders nodes as spheres using a single instancedMesh.
-// We use the backend color (cluster_color) if available.
 function InstancedPoints({nodes, onClickInstance}) {
     const meshRef = useRef();
     const dummy = new THREE.Object3D();
@@ -107,7 +105,7 @@ function InstancedPoints({nodes, onClickInstance}) {
             dummy.position.set(...node.position);
             dummy.updateMatrix();
             meshRef.current.setMatrixAt(i, dummy.matrix);
-            // Use provided cluster_color or fallback.
+            // Use the backend-provided cluster_color if available.
             const col = node.cluster_color ? node.cluster_color : getOctantColor(node.position);
             const color = new THREE.Color(col);
             color.toArray(colorArray, i * 3);
@@ -153,7 +151,7 @@ function InstancedPoints({nodes, onClickInstance}) {
 }
 
 // EdgeLines draws connecting lines between nodes.
-// We override its raycast to prevent interference.
+// We disable its raycasting so that edges do not capture pointer events.
 function EdgeLines({edges, nodesMap}) {
     const points = [];
     edges.forEach(edge => {
@@ -167,7 +165,7 @@ function EdgeLines({edges, nodesMap}) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
     geometry.raycast = () => {
-    }; // Disable raycasting on edges
+    }; // Disable raycasting on edges.
     return (
         <lineSegments geometry={geometry} renderOrder={3}>
             <lineBasicMaterial attach="material" color={0x888888} linewidth={1}/>
@@ -175,7 +173,7 @@ function EdgeLines({edges, nodesMap}) {
     );
 }
 
-// ControlPanel with zoom in, zoom out, and reset buttons.
+// ControlPanel provides zoom in, zoom out, and reset controls.
 function ControlPanel({onZoomIn, onZoomOut, onReset}) {
     return (
         <Box sx={{
@@ -198,8 +196,8 @@ function ControlPanel({onZoomIn, onZoomOut, onReset}) {
 const LawChunkViewer = () => {
     const [allNodes, setAllNodes] = useState([]);
     const [filteredNodes, setFilteredNodes] = useState([]);
-    const [filteredEdges, setFilteredEdges] = useState([]);
     const [edges, setEdges] = useState([]);
+    const [filteredEdges, setFilteredEdges] = useState([]);
     const [selectedNode, setSelectedNode] = useState(null);
     const [loading, setLoading] = useState(true);
     // Multi-select filters for chapters and titles.
@@ -285,11 +283,11 @@ const LawChunkViewer = () => {
         setFilteredEdges(newEdges);
     }, [filteredNodes]);
 
-    // Compute unique values for filtering.
+    // Unique values for filtering.
     const uniqueChapters = Array.from(new Set(allNodes.map(n => n.chapter_number))).sort((a, b) => Number(a) - Number(b));
     const uniqueTitles = Array.from(new Set(allNodes.map(n => n.title_label))).sort();
 
-    // Build mapping from node id to its position (using filteredNodes).
+    // Build mapping from node id to its position (from filteredNodes).
     const nodesMap = {};
     filteredNodes.forEach(n => {
         nodesMap[n.id] = n.position;
@@ -379,13 +377,14 @@ const LawChunkViewer = () => {
                 {loading && (
                     <Box sx={{
                         position: 'absolute',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        flexDirection: 'column',
-                        gap: 2,
                         top: '50%',
                         left: '50%',
-                        transform: 'translate(-50%, -50%)'
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 100,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 2
                     }}>
                         <CircularProgress/>
                         <Typography>Loading law chunks...</Typography>

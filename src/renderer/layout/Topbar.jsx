@@ -5,7 +5,7 @@ import {ArrowBack, ArrowForward, Search} from '@mui/icons-material';
 
 export default function TopBar({currentModule, onNavigate}) {
     return (
-        <AppBar position="relative" sx={{zIndex: (theme) => theme.zIndex.drawer + 1}}>
+        <AppBar position="fixed" sx={{zIndex: (theme) => theme.zIndex.drawer + 1}}>
             <Toolbar>
                 {/* Backward Navigation */}
                 <IconButton color="inherit" onClick={() => onNavigate('back')}>

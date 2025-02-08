@@ -5,7 +5,7 @@ import {Box, Button, Grid, Paper, Tab, Tabs, Typography} from '@mui/material';
 import CaseForm from '../components/CaseForm';
 import DialogShell from '../components/DialogShell';
 import AddItemForm from '../components/AddItemForm';
-import Mammoth from "mammoth";
+import Mammoth from 'mammoth';
 
 export default function CaseDetail({setCurrentModule}) {
     const navigate = useNavigate();
@@ -34,14 +34,12 @@ export default function CaseDetail({setCurrentModule}) {
     }, [caseId]);
 
     React.useEffect(() => {
-        // Set the module title dynamically
         if (caseData) {
-            setCurrentModule(`Case Details: ${caseData.caseName} `);
+            setCurrentModule(`Case Details: ${caseData.caseName}`);
         }
     }, [caseData, setCurrentModule]);
 
     React.useEffect(() => {
-        // Sync form fields with case data
         if (caseData) {
             setCaseName(caseData.caseName || '');
             setDescription(caseData.description || '');
@@ -54,18 +52,14 @@ export default function CaseDetail({setCurrentModule}) {
     }, [caseData]);
 
     React.useEffect(() => {
-        // If the path is exactly "/cases/:caseId", redirect to "/documents"
         if (location.pathname === `/cases/${caseId}`) {
             navigate('documents');
         }
     }, [location, caseId, navigate]);
 
     function buildSafeFileUrl(originalPath) {
-        // Replace backslashes with forward slashes
         let normalizedPath = originalPath.replace(/\\/g, '/');
-        // Encode spaces and other special chars, but not slashes or colons
         normalizedPath = encodeURI(normalizedPath);
-        // Then prepend 'safe-file:///'
         return `safe-file:///${normalizedPath}`;
     }
 
@@ -88,40 +82,147 @@ export default function CaseDetail({setCurrentModule}) {
         }
     }
 
-    async function extractTextFromFile(filePath) {
+    // ================================
+    // Unified Content Extraction Function
+    // ================================
+    async function extractContentFromFile(filePath) {
         const fileType = filePath.split('.').pop().toLowerCase();
-        const safeFileUrl = buildSafeFileUrl(filePath);
-        let extractedText = '';
-
         if (fileType === 'docx') {
+            const safeFileUrl = buildSafeFileUrl(filePath);
             const response = await fetch(safeFileUrl);
             if (!response.ok) {
                 throw new Error(`Failed to fetch DOCX file: ${response.statusText}`);
             }
             const buffer = await response.arrayBuffer();
             const result = await Mammoth.extractRawText({arrayBuffer: buffer});
-            extractedText = result.value;
+            return {modality: 'text', content: result.value};
         } else if (fileType === 'pdf') {
-            // Dynamically import pdfjs-dist to avoid bundling it unnecessarily for other file types
+            const safeFileUrl = buildSafeFileUrl(filePath);
             const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
-            // Set the workerSrc if needed (adjust the path as necessary)
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-
             const loadingTask = pdfjsLib.getDocument(safeFileUrl);
             const pdf = await loadingTask.promise;
+            let extractedText = '';
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                // Combine all text items on the page
                 const pageText = textContent.items.map((item) => item.str).join(' ');
                 extractedText += pageText + '\n';
             }
+            return {modality: 'text', content: extractedText};
+        } else if (['png', 'jpg', 'jpeg', 'gif'].includes(fileType)) {
+            const message = await extractImageEmbedding(filePath);
+            return {modality: 'image', content: message};
+        } else if (fileType === 'doc') {
+            // Placeholder for legacy Word (.doc) processing.
+            throw new Error("DOC file extraction not implemented yet.");
+        } else if (['mp4', 'avi', 'mov'].includes(fileType)) {
+            // Placeholder for video embedding extraction.
+            throw new Error("Video embedding extraction not implemented yet.");
+        } else if (['mp3', 'wav'].includes(fileType)) {
+            // Placeholder for audio embedding extraction.
+            throw new Error("Audio embedding extraction not implemented yet.");
         } else {
-            throw new Error(`File type ${fileType} not supported for text extraction.`);
+            throw new Error(`File type ${fileType} not supported for extraction.`);
         }
-
-        return extractedText;
     }
+
+    // ================================
+    // Image Embedding Extraction Function
+    // ================================
+    async function extractImageEmbedding(filePath) {
+        const safeFileUrl = buildSafeFileUrl(filePath);
+        const response = await fetch(safeFileUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        const formData = new FormData();
+        formData.append("file", blob, filePath.split('/').pop());
+        const res = await fetch('http://localhost:8000/image_embedding', {
+            method: 'POST',
+            body: formData,
+        });
+        if (!res.ok) {
+            throw new Error(`Error from image embedding endpoint: ${res.statusText}`);
+        }
+        const data = await res.json();
+        // Now return just the message (or use it to update UI state)
+        return data.message;
+    }
+
+
+    // ================================
+    // Placeholders for Video and Audio Embeddings
+    // ================================
+    async function extractVideoEmbedding(filePath) {
+        throw new Error("Video embedding extraction not implemented yet.");
+    }
+
+    async function extractAudioEmbedding(filePath) {
+        throw new Error("Audio embedding extraction not implemented yet.");
+    }
+
+    // ================================
+    // Process Document and Store Function
+    // ================================
+    const processDocumentAndStore = async (itemData) => {
+        try {
+            const safeFileUrl = buildSafeFileUrl(itemData.filePath);
+            console.log('Fetching document from:', safeFileUrl);
+
+            // Use the unified extraction function
+            const extracted = await extractContentFromFile(itemData.filePath);
+            console.log('Extracted content:', extracted);
+
+            const savedCustomer = localStorage.getItem('customer');
+            const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
+            if (!customerID) {
+                console.error('No customer_id found in local storage. Please ensure customer settings have been saved.');
+                return;
+            }
+
+            // Build payload and include different keys based on modality.
+            let payload = {
+                document_id: itemData.documentId,
+                doc_id: itemData.fileName, // or another descriptive name
+                similarity_threshold: 0.8,
+                min_chunk_size: 1,
+                max_chunk_size: 5,
+                customer_id: customerID,
+                case_id: caseId,
+                client_id: caseData?.clientId || null,
+                document_name: itemData.fileName,
+            };
+
+            if (extracted.modality === 'text') {
+                payload.text = extracted.content;
+                await chunkAndStore(payload);
+            } else if (extracted.modality === 'image') {
+                console.log('Image embedding already stored. Skipping chunking.');
+            } else if (extracted.modality === 'video') {
+                payload.video_embedding = extracted.content;
+            } else if (extracted.modality === 'audio') {
+                payload.audio_embedding = extracted.content;
+            }
+
+            async function chunkAndStore(payload) {
+                // POST the payload to your backend chunk_and_store endpoint
+                const storeResponse = await fetch('http://localhost:8000/chunk_and_store', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload),
+                });
+                if (!storeResponse.ok) {
+                    throw new Error(`Error from /chunk_and_store: ${storeResponse.statusText}`);
+                }
+                const storeData = await storeResponse.json();
+                console.log('Store Response:', storeData);
+            }
+        } catch (error) {
+            console.error('Error processing document and storing:', error);
+        }
+    };
 
     async function handleSaveCase() {
         const updatedCase = {
@@ -132,7 +233,7 @@ export default function CaseDetail({setCurrentModule}) {
             caseType,
             courtName,
             caseNumber,
-            parties
+            parties,
         };
 
         try {
@@ -154,24 +255,20 @@ export default function CaseDetail({setCurrentModule}) {
      * Called when the user confirms adding a new document/evidence item.
      */
     const handleConfirmAddItem = async () => {
-        // 1) Get the data from child
         const itemData = addItemRef.current.getData();
 
-        // 2) Store in local DB first
         const documentId = await handleAddItemSubmit(itemData);
         console.log('Document ID:', documentId);
 
-        // 3) If successful, extract doc text and call our new chunk_and_store endpoint
         if (documentId) {
             itemData.documentId = documentId; // attach for the backend call
             await processDocumentAndStore(itemData);
-            await fetchCaseData(); // Refresh the case data to see the new doc in the list
+            await fetchCaseData(); // Refresh case data to see the new doc in the list
         }
     };
 
     /**
-     * Stores metadata about the new doc/evidence in the local DB,
-     * returns the assigned documentId on success.
+     * Stores metadata about the new doc/evidence in the local DB and returns the documentId on success.
      */
     const handleAddItemSubmit = async (itemData) => {
         console.log('[CaseDetail] Submitting itemData:', itemData);
@@ -185,7 +282,7 @@ export default function CaseDetail({setCurrentModule}) {
                     type: 'Document',
                     filePath: itemData.filePath,
                     fileName: itemData.fileName,
-                    dateAdded: itemData.dateAdded
+                    dateAdded: itemData.dateAdded,
                 });
             } else {
                 result = await window.electronAPI.evidence.add({
@@ -194,12 +291,12 @@ export default function CaseDetail({setCurrentModule}) {
                     type: 'Evidence',
                     filePath: itemData.filePath,
                     fileName: itemData.fileName,
-                    dateAdded: itemData.dateAdded
+                    dateAdded: itemData.dateAdded,
                 });
             }
 
             if (result && typeof result === 'object' && result.documentId) {
-                return result.documentId; // Return the new documentId
+                return result.documentId;
             } else {
                 console.error('Failed to retrieve document ID.');
                 return null;
@@ -211,61 +308,6 @@ export default function CaseDetail({setCurrentModule}) {
             setAddItemDialogOpen(false);
         }
     };
-
-    /**
-     *  - Fetches the doc from the local file system (safe-file protocol).
-     *  - Extracts text using Mammoth.
-     *  - Sends the entire text + relevant IDs to /chunk_and_store for backend chunking + storage.
-     */
-    const processDocumentAndStore = async (itemData) => {
-        try {
-            const safeFileUrl = buildSafeFileUrl(itemData.filePath);
-            console.log('Fetching document from:', safeFileUrl);
-
-            // Use the unified text extraction utility
-            const extractedText = await extractTextFromFile(itemData.filePath);
-            console.log('Extracted Text:', extractedText);
-
-            // Retrieve the stored customer from localStorage
-            const savedCustomer = localStorage.getItem('customer');
-            const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
-            if (!customerID) {
-                console.error('No customer_id found in local storage. Please ensure customer settings have been saved.');
-                return;
-            }
-
-            // Build the payload for /chunk_and_store
-            const payload = {
-                text: extractedText,
-                document_id: itemData.documentId,
-                doc_id: itemData.fileName, // or some other descriptive name
-                similarity_threshold: 0.8,
-                min_chunk_size: 1,
-                max_chunk_size: 5,
-                customer_id: customerID,
-                case_id: caseId,
-                client_id: caseData?.clientId || null,
-                document_name: itemData.fileName
-            };
-
-            // POST to /chunk_and_store
-            const storeResponse = await fetch('http://localhost:8000/chunk_and_store', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-
-            if (!storeResponse.ok) {
-                throw new Error(`Error from /chunk_and_store: ${storeResponse.statusText}`);
-            }
-
-            const storeData = await storeResponse.json();
-            console.log('Store Response:', storeData);
-        } catch (error) {
-            console.error('Error processing document and storing:', error);
-        }
-    };
-
 
     if (loading) {
         return <Typography>Loading case data...</Typography>;
@@ -307,8 +349,8 @@ export default function CaseDetail({setCurrentModule}) {
                                 color: 'inherit',
                                 cursor: 'pointer',
                                 '&:hover': {
-                                    textDecoration: 'underline'
-                                }
+                                    textDecoration: 'underline',
+                                },
                             }}
                         >
                             Client: {caseData.clientName || 'Unknown Client'}
@@ -327,27 +369,11 @@ export default function CaseDetail({setCurrentModule}) {
                         </Typography>
                     </Grid>
                 </Grid>
-                <Box
-                    sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                    }}
-                >
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        sx={{mt: 2}}
-                        onClick={handleAddCaseItem}
-                    >
+                <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <Button variant="contained" color="primary" sx={{mt: 2}} onClick={handleAddCaseItem}>
                         Add Case Item
                     </Button>
-                    <Button
-                        variant="outlined"
-                        color="primary"
-                        sx={{mt: 2}}
-                        onClick={() => setEditDialogOpen(true)}
-                    >
+                    <Button variant="outlined" color="primary" sx={{mt: 2}} onClick={() => setEditDialogOpen(true)}>
                         Edit Case Details
                     </Button>
                 </Box>
