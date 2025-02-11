@@ -14,6 +14,8 @@ import CaseAssistant from './pages/CaseAssistant'
 import CalendarPage from "./pages/CalendarPage"
 import CaseForm from "./components/CaseForm"
 import LawChunkViewer from "./pages/LawChunkViewer";
+import ChatHistory from "./components/ChatHistory";
+import ChatContainer from "./components/ChatContainer";
 
 
 function ElectronListener() {
@@ -36,7 +38,7 @@ function ElectronListener() {
 export default function App() {
 
     // Lift the state to manage the current module.
-    const [currentModule, setCurrentModule] = useState('Cases');
+    const [currentModule, setCurrentModule] = useState('Clients');
 
     return (
         <Router>
@@ -48,7 +50,8 @@ export default function App() {
                         <Route path="documents" element={<CaseDocuments/>}/>
                         <Route path="evidence" element={<CaseEvidence/>}/>
                         <Route path="graph" element={<CaseGraph/>}/>
-                        <Route path="assistant" element={<CaseAssistant/>}/>
+                        <Route path="chat-history" element={<ChatHistory/>}/> {/* ✅ Replacing assistant */}
+                        <Route path="chat/:chatId" element={<ChatContainer/>}/>
                         <Route path="details" element={<CaseForm/>}/>
                     </Route>
                     <Route path="/clients" element={<Clients setCurrentModule={setCurrentModule}/>}/>
@@ -56,13 +59,15 @@ export default function App() {
                         path="/clients/:clientId"
                         element={<ClientDetail setCurrentModule={setCurrentModule}/>}
                     />
+                    <Route path="/assistant/:caseId/:chatId" element={<CaseAssistant/>}/>
+
                     <Route path="/documents" element={<CaseDocuments/>}/>
                     <Route path="/graph" element={<CaseGraph/>}/>
                     <Route path="/assistant" element={<CaseAssistant/>}/>
                     <Route path="/visualizer" element={<LawChunkViewer/>}/>
                     <Route path="/calendar" element={<CalendarPage/>}/>
                     <Route path="/settings" element={<UserSettingsForm/>}/>
-                    <Route path="*" element={<CasesList/>}/>
+                    <Route path="*" element={<Clients setCurrentModule={setCurrentModule}/>}/>
 
                 </Routes>
             </Layout>

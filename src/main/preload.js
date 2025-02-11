@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getAll: () => ipcRenderer.invoke('cases:getAll'),
         getOne: (caseId) => ipcRenderer.invoke('cases:getOne', caseId),
         update: (caseId, updatedData) => ipcRenderer.invoke('cases:update', {caseId, updatedData}),
+        delete: (caseId) => ipcRenderer.invoke('cases:delete', caseId)
+
 
     },
     // dialog

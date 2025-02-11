@@ -332,25 +332,7 @@ const LawChunkViewer = () => {
                     Clear Filters
                 </Button>
                 <Divider/>
-                <Typography variant="h6" sx={{mt: 2}}>Filter by Chapter</Typography>
-                <FormControl fullWidth sx={{mt: 2}}>
-                    <InputLabel id="chapter-select-label">Chapters</InputLabel>
-                    <Select
-                        labelId="chapter-select-label"
-                        multiple
-                        value={selectedChapters}
-                        label="Chapters"
-                        onChange={(e) => setSelectedChapters(e.target.value)}
-                        renderValue={(selected) => selected.join(', ')}
-                        MenuProps={MenuProps}
-                    >
-                        {uniqueChapters.map(ch => (
-                            <MenuItem key={ch} value={ch}>
-                                {ch}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+
                 <Typography variant="h6" sx={{mt: 4}}>Filter by Title</Typography>
                 <FormControl fullWidth sx={{mt: 2}}>
                     <InputLabel id="title-select-label">Title</InputLabel>
@@ -366,6 +348,25 @@ const LawChunkViewer = () => {
                         {uniqueTitles.map(title => (
                             <MenuItem key={title} value={title}>
                                 {title}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                <Typography variant="h6" sx={{mt: 2}}>Filter by Chapter</Typography>
+                <FormControl fullWidth sx={{mt: 2}}>
+                    <InputLabel id="chapter-select-label">Chapters</InputLabel>
+                    <Select
+                        labelId="chapter-select-label"
+                        multiple
+                        value={selectedChapters}
+                        label="Chapters"
+                        onChange={(e) => setSelectedChapters(e.target.value)}
+                        renderValue={(selected) => selected.join(', ')}
+                        MenuProps={MenuProps}
+                    >
+                        {uniqueChapters.map(ch => (
+                            <MenuItem key={ch} value={ch}>
+                                {ch}
                             </MenuItem>
                         ))}
                     </Select>

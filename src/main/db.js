@@ -211,6 +211,18 @@ function getCaseById(caseId) {
     return caseData;
 }
 
+function deleteCase(caseId) {
+    const transaction = db.transaction(() => {
+        db.prepare(`DELETE FROM case_parties WHERE caseId = ?`).run(caseId);
+        db.prepare(`DELETE FROM documents WHERE caseId = ?`).run(caseId);
+        db.prepare(`DELETE FROM evidence WHERE caseId = ?`).run(caseId);
+        db.prepare(`DELETE FROM cases WHERE id = ?`).run(caseId);
+    });
+
+    transaction();
+    return {success: true};
+}
+
 // -------------- DOCUMENTS CRUD --------------
 function addDocument(doc) {
     const stmt = db.prepare(`
@@ -250,6 +262,7 @@ module.exports = {
     getAllCases,
     addCase,
     updateCase,
+    deleteCase,
     getCaseById,
     getCasesByClient,
     addDocument,

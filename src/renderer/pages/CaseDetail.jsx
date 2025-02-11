@@ -322,11 +322,15 @@ export default function CaseDetail({setCurrentModule}) {
     if (location.pathname.endsWith('/documents')) tabValue = 0;
     if (location.pathname.endsWith('/evidence')) tabValue = 1;
     if (location.pathname.endsWith('/graph')) tabValue = 2;
-    if (location.pathname.endsWith('/assistant')) tabValue = 3;
+    if (location.pathname.includes('/chat')) tabValue = 3;
     if (location.pathname.endsWith('/details')) tabValue = 4;
 
     return (
-        <Box sx={{p: 3}}>
+        <Box
+            sx={{
+                height: 'calc(100vh - 65px)',
+                p: 3
+            }}>
             {/* Primary Case Information */}
             <Paper elevation={3} sx={{p: 3, mb: 3}}>
                 <Grid container spacing={2}>
@@ -384,12 +388,14 @@ export default function CaseDetail({setCurrentModule}) {
                 <Tab label="Documents" component={Link} to="documents"/>
                 <Tab label="Evidence" component={Link} to="evidence"/>
                 <Tab label="Graph" component={Link} to="graph"/>
-                <Tab label="Assistant" component={Link} to="assistant"/>
+                <Tab label="Chat" component={Link} to="chat/:chatId"/>
                 <Tab label="Details" component={Link} to="details"/>
             </Tabs>
 
             {/* Child route content */}
-            <Outlet context={{documents, evidence}}/>
+            <Box sx={{height: 'calc(100vh - 415px)', overflow: 'hidden'}}>
+                <Outlet context={{documents, evidence}}/>
+            </Box>
 
             {/* Add Item Dialog */}
             <DialogShell

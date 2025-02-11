@@ -15,7 +15,7 @@ export default function Layout({children, currentModule, setCurrentModule}) {
     };
 
     return (
-        <Box sx={{display: 'flex', flexDirection: 'column', height: '100vh'}}>
+        <Box sx={{display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden'}}>
             {/* TopBar */}
             <TopBar currentModule={currentModule} onNavigate={handleNavigate}/>
 
@@ -30,7 +30,7 @@ export default function Layout({children, currentModule, setCurrentModule}) {
                         [`& .MuiDrawer-paper`]: {
                             width: drawerWidth,
                             boxSizing: 'border-box',
-                            top: '64px', // Adjust this value to match the height of the TopBar
+                            top: '65px', // Adjust this value to match the height of the TopBar
                         },
                     }}
                 >
@@ -43,7 +43,8 @@ export default function Layout({children, currentModule, setCurrentModule}) {
                     sx={{
                         flexGrow: 1,
                         bgcolor: 'background.default',
-                        p: 0, // Padding for content
+                        paddingTop: '65px',
+                        overflow: 'hidden'
                     }}
                 >
                     {children}

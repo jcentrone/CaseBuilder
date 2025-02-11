@@ -26,4 +26,7 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(200,200,200,0.3) transparent;
 }
+main{
+  height: 100vh;
+}
 

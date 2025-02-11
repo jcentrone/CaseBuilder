@@ -1,10 +1,14 @@
 import React from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
-import {Box, Button, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography} from '@mui/material'
+import {Box, Button, Grid, Paper, Table, TableBody, IconButton, TableCell, TableHead, TableRow, Typography} from '@mui/material'
 import {v4 as uuidv4} from 'uuid'
+import DeleteIcon from '@mui/icons-material/Delete'
 
 import DialogShell from '../components/DialogShell'
 import CaseForm from '../components/CaseForm'
+
+import Swal from 'sweetalert2'
+
 
 export default function ClientDetail({setCurrentModule}) {
     const {clientId} = useParams()
@@ -85,6 +89,35 @@ export default function ClientDetail({setCurrentModule}) {
         fetchClientDetail();
     }
 
+    async function handleDelete(caseId) {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+        const result = await Swal.fire({
+            title: "Are you sure?",
+            text: "This will permanently delete the case.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#3085d6",
+            confirmButtonText: "Yes, delete it!",
+            background: prefersDark ? "#1e1e1e" : "#fff",
+            color: prefersDark ? "#fff" : "#000",
+        });
+
+        if (result.isConfirmed) {
+            await window.electronAPI.cases.delete(caseId);
+            setCases((prevCases) => prevCases.filter((c) => c.id !== caseId));
+
+            Swal.fire({
+                title: "Deleted!",
+                text: "The case has been removed.",
+                icon: "success",
+                background: prefersDark ? "#1e1e1e" : "#fff",
+                color: prefersDark ? "#fff" : "#000",
+            });
+        }
+    }
+
 
     if (!clientData) {
         return <Typography>Loading client data...</Typography>
@@ -142,8 +175,7 @@ export default function ClientDetail({setCurrentModule}) {
             <Box sx={{mt: 3}}>
                 <Box sx={{display: 'flex', justifyContent: 'space-between'}}>
                     <Typography variant="h5" gutterBottom>Cases</Typography>
-
-                    <Button variant="contained" onClick={handleOpenAddCase} sx={{mb: 2}}>
+                    <Button variant="contained" onClick={() => setDialogOpen(true)} sx={{mb: 2}}>
                         Add Case
                     </Button>
                 </Box>
@@ -158,19 +190,31 @@ export default function ClientDetail({setCurrentModule}) {
                                     <TableCell>Case Name</TableCell>
                                     <TableCell>Date Opened</TableCell>
                                     <TableCell>Description</TableCell>
+                                    <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {cases.map((c) => (
-                                    <TableRow
-                                        key={c.id}
-                                        hover
-                                        style={{cursor: 'pointer'}}
-                                        onClick={() => navigate(`/cases/${c.id}`)} // <== navigate to CaseDetail
-                                    >
-                                        <TableCell>{c.caseName}</TableCell>
+                                    <TableRow key={c.id} hover>
+                                        <TableCell
+                                            style={{cursor: 'pointer'}}
+                                            onClick={() => navigate(`/cases/${c.id}`)}
+                                        >
+                                            {c.caseName}
+                                        </TableCell>
                                         <TableCell>{c.dateOpened}</TableCell>
                                         <TableCell>{c.description}</TableCell>
+                                        <TableCell>
+                                            <IconButton
+                                                color="error"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(c.id);
+                                                }}
+                                            >
+                                                <DeleteIcon/>
+                                            </IconButton>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

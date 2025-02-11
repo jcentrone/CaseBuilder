@@ -28,6 +28,7 @@ const {
     getAllCases,
     addCase,
     updateCase,
+    deleteCase,
     getCaseById,
     getCasesByClient,
     addDocument,
@@ -291,6 +292,10 @@ app.whenReady().then(() => {
             console.error('Error updating case:', error);
             throw error;
         }
+    });
+
+    ipcMain.handle('cases:delete', async (event, caseId) => {
+        return await deleteCase(caseId);
     });
 
     // ---- IPC for Documents ----
