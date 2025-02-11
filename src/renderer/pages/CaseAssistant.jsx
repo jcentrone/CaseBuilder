@@ -1,4 +1,3 @@
-// CaseAssistant.jsx
 import React, {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {Box, Button, Divider, Drawer, IconButton, TextField, Typography} from '@mui/material';
@@ -7,30 +6,38 @@ import {openDB} from 'idb';
 import {v4 as uuidv4} from 'uuid';
 import ChatSidebar from '../components/ChatSidebar';
 
-// IndexedDB Setup & Helper Functions
-const dbPromise = openDB('chat-db', 2, {
+// 1) IDB Setup
+const dbPromise = openDB('chat-db', 3, {
     upgrade(db) {
         if (!db.objectStoreNames.contains('chatThreads')) {
             const store = db.createObjectStore('chatThreads', {keyPath: 'threadId'});
             store.createIndex('case_id', 'case_id', {unique: false});
+            // If needed, you can do migrations here for new fields
         }
-    },
+    }
 });
 
 async function getChatThreadsForCase(caseId) {
     const db = await dbPromise;
-    return await db.getAllFromIndex('chatThreads', 'case_id', caseId);
+    return db.getAllFromIndex('chatThreads', 'case_id', caseId);
 }
 
 async function saveChatThread(thread) {
     const db = await dbPromise;
-    await db.put('chatThreads', thread);
+    return db.put('chatThreads', thread);
+}
+
+// New: Delete thread from IDB
+async function deleteChatThread(threadId) {
+    const db = await dbPromise;
+    return db.delete('chatThreads', threadId);
 }
 
 async function createNewChatThread(caseId) {
     const newThread = {
         threadId: uuidv4(),
         case_id: caseId,
+        title: "", // or some default like "Thread <timestamp>"
         messages: [],
         createdAt: new Date().toISOString()
     };
@@ -38,17 +45,19 @@ async function createNewChatThread(caseId) {
     return newThread;
 }
 
-// Drawer Component for Supporting Docs / Related Chunks
+// Drawer for chunk data
 function ChunksDrawer({open, onClose, relatedChunks = []}) {
     return (
         <Drawer
             anchor="right"
             open={open}
             onClose={onClose}
-            PaperProps={{sx: {width: 400, top: 65, height: "calc(100% - 65px)", backgroundColor: 'background.paper'}}}
+            PaperProps={{sx: {width: 400, top: 65, height: "calc(100% - 65px)"}}}
         >
             <Box sx={{p: 2, height: "100%", overflowY: "auto"}}>
-                <Typography variant="h6" gutterBottom>Document & Relevant Law</Typography>
+                <Typography variant="h6" gutterBottom>
+                    Document &amp; Relevant Law
+                </Typography>
                 <Divider sx={{mb: 2}}/>
                 {relatedChunks.length === 0 ? (
                     <Typography variant="body2">No related chunks available.</Typography>
@@ -56,7 +65,12 @@ function ChunksDrawer({open, onClose, relatedChunks = []}) {
                     relatedChunks.map((item, index) => (
                         <Box
                             key={index}
-                            sx={{mb: 2, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1}}
+                            sx={{
+                                mb: 2,
+                                p: 1,
+                                border: "1px solid #ccc",
+                                borderRadius: 1
+                            }}
                         >
                             <Typography variant="subtitle1">
                                 <strong>Document:</strong> {item.supporting_chunk.name}
@@ -66,10 +80,10 @@ function ChunksDrawer({open, onClose, relatedChunks = []}) {
                             </Typography>
                             <Box sx={{pl: 2, mt: 1}}>
                                 {item.law_chunks && item.law_chunks.length > 0 ? (
-                                    item.law_chunks.map((law, idx) => (
+                                    item.law_chunks.map((law, idx2) => (
                                         <Box
-                                            key={idx}
-                                            sx={{mb: 1, borderLeft: '2px solid', borderColor: 'divider', pl: 1}}
+                                            key={idx2}
+                                            sx={{mb: 1, borderLeft: "2px solid #ccc", pl: 1}}
                                         >
                                             <Typography variant="caption">
                                                 <strong>Law:</strong> {law.name}
@@ -99,69 +113,93 @@ export default function CaseAssistant() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [drawerRelatedChunks, setDrawerRelatedChunks] = useState([]);
 
-    // Load cases on mount.
+    // Load Cases
     useEffect(() => {
-        async function fetchCases() {
+        (async () => {
             try {
                 const data = await window.electronAPI.cases.getAll();
                 setCases(data || []);
-                if (data && data.length > 0 && data[0].id) {
-                    const defaultCase = {case_id: data[0].id, client_id: data[0].clientId};
+                if (data?.length > 0) {
+                    const defaultCase = {
+                        case_id: data[0].id,
+                        client_id: data[0].clientId
+                    };
                     setSelectedCase(defaultCase);
                 }
             } catch (err) {
                 console.error("Error fetching cases:", err);
             }
-        }
-
-        fetchCases();
+        })();
     }, [clientId]);
 
-    // When the selected case changes, load its chat threads.
+    // Load threads for the selectedCase
     useEffect(() => {
-        if (selectedCase && selectedCase.case_id) {
-            getChatThreadsForCase(selectedCase.case_id).then((threads) => {
+        (async () => {
+            if (selectedCase?.case_id) {
+                const threads = await getChatThreadsForCase(selectedCase.case_id);
                 setChatThreads(threads);
                 if (threads.length > 0) {
+                    // pick the newest or first
                     setCurrentThread(threads[0]);
                 } else {
-                    createNewChatThread(selectedCase.case_id).then((newThread) => {
-                        setChatThreads([newThread]);
-                        setCurrentThread(newThread);
-                    });
+                    // create a new one
+                    const newThread = await createNewChatThread(selectedCase.case_id);
+                    setChatThreads([newThread]);
+                    setCurrentThread(newThread);
                 }
-            });
-        }
+            }
+        })();
     }, [selectedCase]);
 
-    // Update current thread in state and IndexedDB.
-    const updateCurrentThread = async (updatedThread) => {
-        setCurrentThread(updatedThread);
+    // Update thread in IDB and local state
+    const updateCurrentThread = async (thread) => {
+        await saveChatThread(thread);
         setChatThreads((prev) =>
-            prev.map(thread => (thread.threadId === updatedThread.threadId ? updatedThread : thread))
+            prev.map((t) => (t.threadId === thread.threadId ? thread : t))
         );
-        await saveChatThread(updatedThread);
+        setCurrentThread(thread);
     };
 
+    // Create new thread
     const handleNewThread = async () => {
-        if (!selectedCase || !selectedCase.case_id) return null;
+        if (!selectedCase) return;
         const newThread = await createNewChatThread(selectedCase.case_id);
-        setChatThreads(prev => [...prev, newThread]);
+        setChatThreads((prev) => [newThread, ...prev]); // put new at top
         setCurrentThread(newThread);
         return newThread;
     };
 
-    const handleSend = async () => {
-        const savedCustomer = localStorage.getItem("customer");
-        const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : null;
-        if (!customerID) {
-            console.error("No customer_id found in local storage.");
-            return;
+    // Delete a thread
+    const handleDeleteThread = async (thread) => {
+        await deleteChatThread(thread.threadId);
+        setChatThreads((prev) => prev.filter((t) => t.threadId !== thread.threadId));
+        // If we delete the current, pick another or null
+        if (currentThread?.threadId === thread.threadId) {
+            if (chatThreads.length > 1) {
+                // pick the next
+                setCurrentThread(chatThreads.find((t) => t.threadId !== thread.threadId) || null);
+            } else {
+                setCurrentThread(null);
+            }
         }
-        if (!selectedCase || !selectedCase.case_id || !selectedCase.client_id) {
+    };
+
+    // Rename a thread
+    const handleRenameThread = async (thread, newTitle) => {
+        const updated = {...thread, title: newTitle};
+        await updateCurrentThread(updated);
+    };
+
+    // Send message
+    const handleSend = async () => {
+        if (!selectedCase?.case_id || !selectedCase?.client_id) {
             console.error("No valid case selected.");
             return;
         }
+
+        const savedCustomer = localStorage.getItem("customer");
+        const customerID = savedCustomer ? JSON.parse(savedCustomer).client_id : "unknown";
+
         let activeThread = currentThread;
         if (!activeThread) {
             activeThread = await handleNewThread();
@@ -169,67 +207,74 @@ export default function CaseAssistant() {
         }
 
         const userMessage = {role: "user", content: query};
-        const updatedMessages = [...activeThread.messages, userMessage];
+        const updatedMessages = [...(activeThread.messages || []), userMessage];
         const updatedThread = {...activeThread, messages: updatedMessages};
-        await updateCurrentThread(updatedThread);
 
-        // Prepare payload with the full conversation history.
+        await updateCurrentThread(updatedThread);
+        setQuery("");
+
+        // sanitize
+        const sanitizedHistory = updatedMessages.map((m) => ({
+            role: m.role,
+            content: m.content
+        }));
+
         const payload = {
             client_id: selectedCase.client_id,
             customer_id: customerID,
             case_id: selectedCase.case_id,
-            query: query,
+            query,
             top_k: 3,
-            history: updatedMessages,
+            history: sanitizedHistory
         };
 
-        setQuery("");
-
         try {
-            const response = await fetch("http://localhost:8000/query", {
+            const resp = await fetch("http://localhost:8000/query", {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(payload),
+                body: JSON.stringify(payload)
             });
-            const data = await response.json();
+            const data = await resp.json();
+
             const assistantMessage = {
                 role: "assistant",
                 content: data.final_answer,
-                related_chunks: data.related_chunks || [],
+                related_chunks: data.related_chunks || []
             };
             const newMessages = [...updatedMessages, assistantMessage];
-            const newThread = {...activeThread, messages: newMessages};
-            await updateCurrentThread(newThread);
+            const newThread2 = {...updatedThread, messages: newMessages};
+            await updateCurrentThread(newThread2);
         } catch (err) {
             console.error("Error querying:", err);
-            const errorMsg = {role: "assistant", content: "Sorry, something went wrong."};
-            const newMessages = [...updatedMessages, errorMsg];
-            const newThread = {...activeThread, messages: newMessages};
-            await updateCurrentThread(newThread);
+            // Optionally add an error message
         }
     };
 
+    // Render chat
     const renderChatMessages = () => {
         if (!currentThread) return null;
-        return currentThread.messages.map((msg, idx) => {
+        return currentThread.messages?.map((msg, idx) => {
             const isUser = msg.role === "user";
             return (
-                <Box key={idx} sx={{display: "flex", flexDirection: isUser ? "row-reverse" : "row", mb: 2}}>
+                <Box
+                    key={idx}
+                    sx={{display: "flex", flexDirection: isUser ? "row-reverse" : "row", mb: 2}}
+                >
                     <Box
                         sx={{
-                            backgroundColor: isUser ? 'rgba(0, 123, 255, 0.3)' : "#2F2F2F",
+                            backgroundColor: isUser ? "rgba(0, 123, 255, 0.3)" : "#2F2F2F",
                             color: isUser ? "#fff" : "#B4B4B4",
                             borderRadius: "12px",
                             padding: "8px 12px",
                             maxWidth: "60%",
                             position: "relative",
-                            border: '0px solid',
-                            borderColor: 'divider',
-                            height: 'fit-content'
+                            mb: 1
                         }}
                     >
                         <Typography variant="body1">{msg.content}</Typography>
-                        {msg.role === "assistant" && msg.related_chunks && msg.related_chunks.length > 0 && (
+
+                        {/* If assistant + has chunk data, show icon */}
+                        {msg.role === "assistant" && msg.related_chunks?.length > 0 && (
                             <IconButton
                                 size="small"
                                 sx={{position: "absolute", top: 4, right: -40}}
@@ -249,7 +294,8 @@ export default function CaseAssistant() {
 
     return (
         <Box sx={{display: "flex"}}>
-            <Box sx={{width: 300, flexShrink: 0, position: 'fixed', paddingTop: 3, height: '100%'}}>
+            {/* Left sidebar */}
+            <Box sx={{width: 300, flexShrink: 0, position: "fixed", paddingTop: 3, height: "100%"}}>
                 <ChatSidebar
                     cases={cases}
                     chatThreads={chatThreads}
@@ -257,24 +303,39 @@ export default function CaseAssistant() {
                     onSelectCase={setSelectedCase}
                     onSelectThread={setCurrentThread}
                     onNewThread={handleNewThread}
-
+                    onDeleteThread={handleDeleteThread}
+                    onRenameThread={handleRenameThread}
                 />
             </Box>
-            <Box sx={{marginLeft: 40, flex: 1, display: "flex", height: '100vh', paddingTop: '70px !important', flexDirection: "column", p: 2, backgroundColor: 'background.default'}}>
-                {/*<Typography variant="h6">Case Assistant</Typography>*/}
+
+            {/* Main Chat area */}
+            <Box
+                sx={{
+                    marginLeft: 40,
+                    flex: 1,
+                    display: "flex",
+                    height: "100vh",
+                    paddingTop: "70px !important",
+                    flexDirection: "column",
+                    p: 2,
+                    backgroundColor: "background.default"
+                }}
+            >
                 <Box
                     sx={{
                         flex: 1,
                         overflowY: "auto",
-                        border: '1px solid',
-                        borderColor: 'divider',
+                        border: "1px solid",
+                        borderColor: "divider",
                         borderRadius: "4px",
                         p: 2,
-                        mt: 2,
+                        mt: 2
                     }}
                 >
                     {renderChatMessages()}
                 </Box>
+
+                {/* Input area */}
                 <Box sx={{mt: 2, display: "flex"}}>
                     <TextField
                         label="Ask about this case..."
@@ -293,6 +354,8 @@ export default function CaseAssistant() {
                     </Button>
                 </Box>
             </Box>
+
+            {/* Drawer for chunk data */}
             <ChunksDrawer
                 open={isDrawerOpen}
                 onClose={() => setIsDrawerOpen(false)}
