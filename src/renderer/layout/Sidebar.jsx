@@ -43,19 +43,19 @@ export default function Sidebar({setCurrentModule}) {
                         <ListItemText primary="Cases"/>
                     </ListItemButton>
                 </ListItem>
-                <ListItem disablePadding>
-                    <ListItemButton
-                        onClick={handleNavigation('Case Agent', '/assistant')}
-                        sx={{
-                            backgroundColor: isActive('/assistant') ? 'rgba(0, 123, 255, 0.1)' : 'transparent',
-                            '&:hover': {
-                                backgroundColor: 'rgba(0, 123, 255, 0.2)',
-                            },
-                        }}
-                    >
-                        <ListItemText primary="Case Agent"/>
-                    </ListItemButton>
-                </ListItem>
+                {/*<ListItem disablePadding>*/}
+                {/*    <ListItemButton*/}
+                {/*        onClick={handleNavigation('Case Agent', '/assistant')}*/}
+                {/*        sx={{*/}
+                {/*            backgroundColor: isActive('/assistant') ? 'rgba(0, 123, 255, 0.1)' : 'transparent',*/}
+                {/*            '&:hover': {*/}
+                {/*                backgroundColor: 'rgba(0, 123, 255, 0.2)',*/}
+                {/*            },*/}
+                {/*        }}*/}
+                {/*    >*/}
+                {/*        <ListItemText primary="Case Agent"/>*/}
+                {/*    </ListItemButton>*/}
+                {/*</ListItem>*/}
                 <ListItem disablePadding>
                     <ListItemButton
                         onClick={handleNavigation('Visualizer', '/visualizer')}

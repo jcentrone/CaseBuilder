@@ -1,6 +1,8 @@
 import React from 'react';
 import {Link, Outlet, useLocation, useNavigate, useParams} from 'react-router-dom';
 import {Box, Button, Grid, Paper, Tab, Tabs, Typography} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 import CaseForm from '../components/CaseForm';
 import DialogShell from '../components/DialogShell';
@@ -27,6 +29,7 @@ export default function CaseDetail({setCurrentModule}) {
     const [parties, setParties] = React.useState([]);
     const [documents, setDocuments] = React.useState([]);
     const [evidence, setEvidence] = React.useState([]);
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     React.useEffect(() => {
         fetchCaseData().then(() => {
@@ -334,56 +337,79 @@ export default function CaseDetail({setCurrentModule}) {
             {/* Primary Case Information */}
             <Paper elevation={3} sx={{p: 3, mb: 3}}>
                 <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
-                        <Typography variant="h4" gutterBottom>
-                            {caseData.caseName}
-                        </Typography>
-                        <Typography variant="subtitle1" gutterBottom>
-                            {caseData.description || 'No description available.'}
-                        </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <Typography
-                            variant="subtitle2"
-                            gutterBottom
-                            component={Link}
-                            to={`/clients/${caseData.clientId}`}
-                            sx={{
-                                textDecoration: 'none',
-                                color: 'inherit',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                },
-                            }}
-                        >
-                            Client: {caseData.clientName || 'Unknown Client'}
-                        </Typography>
-                        <Typography variant="subtitle2" gutterBottom>
-                            Case Type: {caseData.caseType || 'Unknown'}
-                        </Typography>
-                        <Typography variant="subtitle2" gutterBottom>
-                            Court: {caseData.courtName || 'Not specified'}
-                        </Typography>
-                        <Typography variant="subtitle2" gutterBottom>
-                            Case Number: {caseData.caseNumber || 'Not assigned'}
-                        </Typography>
-                        <Typography variant="subtitle2" gutterBottom>
-                            Status: {caseData.status || 'Open'}
-                        </Typography>
-                    </Grid>
+                    {!isCollapsed ?
+                        <Grid item xs={12} md={8}>
+                            <Typography variant="h4" gutterBottom>
+                                {caseData.caseName}
+                            </Typography>
+
+                            <Typography variant="subtitle1" gutterBottom>
+                                {caseData.description || 'No description available.'}
+                            </Typography>
+
+                        </Grid>
+                        :
+                        <Grid item xs={12}>
+                            <Typography variant="h4" gutterBottom>
+                                {caseData.caseName}
+                            </Typography>
+                        </Grid>
+
+                    }
+
+
+                    {!isCollapsed &&
+                        <Grid item xs={12} md={4}>
+                            <Typography
+                                variant="subtitle2"
+                                gutterBottom
+                                component={Link}
+                                to={`/clients/${caseData.clientId}`}
+                                sx={{
+                                    textDecoration: 'none',
+                                    color: 'inherit',
+                                    cursor: 'pointer',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                    },
+                                }}
+                            >
+                                Client: {caseData.clientName || 'Unknown Client'}
+                            </Typography>
+                            <Typography variant="subtitle2" gutterBottom>
+                                Case Type: {caseData.caseType || 'Unknown'}
+                            </Typography>
+                            <Typography variant="subtitle2" gutterBottom>
+                                Court: {caseData.courtName || 'Not specified'}
+                            </Typography>
+                            <Typography variant="subtitle2" gutterBottom>
+                                Case Number: {caseData.caseNumber || 'Not assigned'}
+                            </Typography>
+                            <Typography variant="subtitle2" gutterBottom>
+                                Status: {caseData.status || 'Open'}
+                            </Typography>
+                        </Grid>
+                    }
                 </Grid>
-                <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+
+                <Box sx={{display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center'}}>
                     <Button variant="contained" color="primary" sx={{mt: 2}} onClick={handleAddCaseItem}>
                         Add Case Item
                     </Button>
                     <Button variant="outlined" color="primary" sx={{mt: 2}} onClick={() => setEditDialogOpen(true)}>
                         Edit Case Details
                     </Button>
+                    <Button variant="outlined" color="info" sx={{mt: 2, height: '36px'}}
+                            onClick={() => setIsCollapsed(!isCollapsed)}>
+
+                        {isCollapsed ? <ExpandMoreIcon fontSize="large"/> : <ExpandLessIcon fontSize="large"/>}
+                    </Button>
+
                 </Box>
             </Paper>
 
-            {/* Sub-navigation with Tabs */}
+            {/* Sub-navigation with Tabs */
+            }
             <Tabs value={tabValue} sx={{mb: 2}}>
                 <Tab label="Documents" component={Link} to="documents"/>
                 <Tab label="Evidence" component={Link} to="evidence"/>
@@ -392,12 +418,14 @@ export default function CaseDetail({setCurrentModule}) {
                 <Tab label="Details" component={Link} to="details"/>
             </Tabs>
 
-            {/* Child route content */}
-            <Box sx={{height: 'calc(100vh - 415px)', overflow: 'hidden'}}>
+            {/* Child route content */
+            }
+            <Box sx={{height: 'calc(100vh - 410px)', overflow: 'hidden'}}>
                 <Outlet context={{documents, evidence}}/>
             </Box>
 
-            {/* Add Item Dialog */}
+            {/* Add Item Dialog */
+            }
             <DialogShell
                 title="Add Case Item"
                 open={addItemDialogOpen}
@@ -407,7 +435,8 @@ export default function CaseDetail({setCurrentModule}) {
                 <AddItemForm collectFormDataRef={addItemRef}/>
             </DialogShell>
 
-            {/* Edit Case Dialog */}
+            {/* Edit Case Dialog */
+            }
             <DialogShell
                 title="Edit Case Details"
                 open={editDialogOpen}
@@ -432,5 +461,6 @@ export default function CaseDetail({setCurrentModule}) {
                 />
             </DialogShell>
         </Box>
-    );
+    )
+        ;
 }
