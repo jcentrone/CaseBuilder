@@ -3,6 +3,8 @@ import {useParams} from "react-router-dom";
 import {Box, Button, Divider, Drawer, IconButton, TextField, Tooltip, Typography} from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import InfoIcon from '@mui/icons-material/Info';
+
 import ChatSidebar from "../components/ChatSidebar";
 import {openDB} from "idb";
 import {v4 as uuidv4} from "uuid";
@@ -199,23 +201,74 @@ export default function ChatContainer() {
                         p: 2,
                     }}
                 >
-                    {currentThread?.messages?.map((msg, idx) => (
-                        <Box key={idx}
-                             sx={{display: "flex", flexDirection: msg.role === "user" ? "row-reverse" : "row", mb: 2}}>
-                            <Box
-                                sx={{
-                                    backgroundColor: msg.role === "user" ? "rgba(0, 123, 255, 0.2)" : "#2F2F2F",
-                                    color: "#fff",
-                                    borderRadius: "12px",
-                                    padding: "8px 12px",
-                                    maxWidth: "60%",
-                                }}
-                            >
-                                <Typography variant="body1">{msg.content}</Typography>
+                    {currentThread?.messages?.map((msg, idx) => {
+                        const isUser = msg.role === "user";
+                        return (
+                            <Box key={idx} sx={{
+                                display: "flex",
+                                flexDirection: isUser ? "row-reverse" : "row",
+                                mb: 2,
+                                position: "relative"
+                            }}>
+                                <Box
+                                    ref={messagesContainerRef}
+                                    sx={{
+                                        flex: 1,
+                                        overflowY: "auto",
+                                        border: "1px solid",
+                                        borderColor: "transparent",
+                                        borderRadius: "4px",
+                                        p: 2,
+                                    }}
+                                >
+                                    {currentThread?.messages?.map((msg, idx) => {
+                                        const isUser = msg.role === "user";
+                                        return (
+                                            <Box key={idx} sx={{
+                                                display: "flex",
+                                                flexDirection: isUser ? "row-reverse" : "row",
+                                                mb: 2,
+                                                position: "relative"
+                                            }}>
+                                                <Box
+                                                    sx={{
+                                                        backgroundColor: isUser ? "rgba(0, 123, 255, 0.2)" : "#2F2F2F",
+                                                        color: "#fff",
+                                                        borderRadius: "12px",
+                                                        padding: "8px 12px",
+                                                        maxWidth: "60%",
+                                                        position: "relative" // ✅ Ensures icon can be positioned inside message box
+                                                    }}
+                                                >
+                                                    <Typography variant="body1">{msg.content}</Typography>
+
+                                                    {/* ✅ Show Info Icon if assistant message has related chunks */}
+                                                    {msg.role === "assistant" && msg.related_chunks?.length > 0 && (
+                                                        <IconButton
+                                                            size="small"
+                                                            sx={{position: "absolute", top: 4, right: -40}}
+                                                            onClick={() => {
+                                                                setDrawerRelatedChunks(msg.related_chunks);
+                                                                setIsDrawerOpen(true);
+                                                            }}
+                                                        >
+                                                            <InfoIcon fontSize="small"/>
+                                                        </IconButton>
+                                                    )}
+                                                    <ChunksDrawer open={isDrawerOpen}
+                                                                  onClose={() => setIsDrawerOpen(false)}
+                                                                  relatedChunks={drawerRelatedChunks}/>
+                                                </Box>
+                                            </Box>
+                                        );
+                                    })}
+                                </Box>
+
                             </Box>
-                        </Box>
-                    ))}
+                        );
+                    })}
                 </Box>
+
 
                 <Box sx={{mt: 2, display: "flex"}}>
                     <TextField value={query} onChange={(e) => setQuery(e.target.value)} sx={{flex: 1, mr: 2}}/>
