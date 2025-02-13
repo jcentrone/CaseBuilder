@@ -399,7 +399,7 @@ export default function ChatContainer() {
                         position: "absolute",
                         left: sidebarOpen ? 250 : 10,
                         top: 2,
-                        zIndex: 10,
+                        zIndex: 8,
                         transition: "left 0.3s ease-in-out",
                         backgroundColor: "#121212",
                         border: "1px solid",
@@ -423,12 +423,12 @@ export default function ChatContainer() {
 
                     // If we want to overlay the entire screen except for the left 300px:
                     bottom: 0,
-                    left: isFullScreen ? "241px" : "auto",
-                    width: isFullScreen ? "calc(100vw - 241px)" : "100%",
-                    height: isFullScreen ? "calc(100vh - 64px)" : "auto",
+                    left: isFullScreen ? "240px" : "auto",
+                    width: isFullScreen ? "calc(100vw - 240px)" : "100%",
+                    height: isFullScreen ? "calc(100vh - 65px)" : "auto",
 
                     backgroundColor: isFullScreen ? "background.paper" : "transparent",
-                    zIndex: isFullScreen ? 9999 : "auto",
+                    zIndex: isFullScreen ? 9 : "auto",
                     transition: "all 0.3s ease-in-out",
 
                     // Some normal layout
@@ -441,7 +441,17 @@ export default function ChatContainer() {
             >
                 {/* 1) The heading row with a "Chat" label + icon */}
                 <Box sx={{display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2}}>
-                    <Typography variant="h5" color={"textSecondary"}>Chat</Typography>
+                    <Typography
+                        variant="h5"
+                        color={"textSecondary"}
+                        sx={{
+                            pl: isFullScreen
+                                ? 0        // if isFullScreen is true
+                                : sidebarOpen
+                                    ? 0      // not full screen, but sidebar open
+                                    : 6      // not full screen, sidebar closed
+                        }}
+                    >Chat</Typography>
 
                     <IconButton
                         sx={{
