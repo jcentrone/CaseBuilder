@@ -332,7 +332,8 @@ export default function CaseDetail({setCurrentModule}) {
         <Box
             sx={{
                 height: 'calc(100vh - 65px)',
-                p: 3
+                p: 3,
+                position: 'relative'
             }}>
             {/* Primary Case Information */}
             <Paper elevation={3} sx={{p: 3, mb: 3}}>

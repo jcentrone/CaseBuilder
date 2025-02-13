@@ -52,7 +52,9 @@ export default function ChatSidebar({
                 variant={"h5"}
                 color={"textSecondary"}
                 sx={{
-                    mb: 2
+                    mb: 2,
+
+
                 }}
             >
                 Chat History
@@ -181,7 +183,7 @@ export default function ChatSidebar({
             </Box>
 
             {/* New Chat Button (Pinned at Bottom) */}
-            <Box sx={{pt: 2}}>
+            <Box sx={{pt: 2, mr:1}}>
                 <Button variant="outlined" fullWidth onClick={onNewThread}>
                     + New Chat
                 </Button>

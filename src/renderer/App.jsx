@@ -50,7 +50,6 @@ export default function App() {
                         <Route path="documents" element={<CaseDocuments/>}/>
                         <Route path="evidence" element={<CaseEvidence/>}/>
                         <Route path="graph" element={<CaseGraph/>}/>
-                        <Route path="chat-history" element={<ChatHistory/>}/> {/* ✅ Replacing assistant */}
                         <Route path="chat/:chatId" element={<ChatContainer/>}/>
                         <Route path="details" element={<CaseForm/>}/>
                     </Route>
