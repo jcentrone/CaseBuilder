@@ -1,4 +1,8 @@
 import React, {useEffect, useRef, useState} from "react";
+import ReactMarkdown from 'react-markdown';
+import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+// pick any style you like; 'oneDark' is just an example
+import {oneDark} from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {useParams} from "react-router-dom";
 import {Box, Button, Divider, Drawer, IconButton, TextField, Tooltip, Typography} from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -226,7 +230,7 @@ export default function ChatContainer() {
         url.searchParams.set("customer_id", customerID);
         url.searchParams.set("case_id", caseId);
         url.searchParams.set("query", query.trim());
-        url.searchParams.set("top_k", "5");
+        url.searchParams.set("top_k", "3");
         url.searchParams.set("history", historyParam);
 
         // 6) Listen for SSE
@@ -295,44 +299,120 @@ export default function ChatContainer() {
                     const isUser = msg.role === "user";
 
                     return (
-                        <Box
-                            key={idx}
-                            sx={{
-                                display: "flex",
-                                flexDirection: isUser ? "row-reverse" : "row",
-                                mb: 2,
-                                position: "relative",
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    backgroundColor: isUser ? "rgba(0, 123, 255, 0.2)" : "#2F2F2F",
-                                    color: "#fff",
-                                    borderRadius: "12px",
-                                    padding: "8px 12px",
-                                    maxWidth: "60%",
-                                    mb: 1,
-                                    position: "relative",
-                                }}
-                            >
-                                <Typography variant="body1">{msg.content}</Typography>
+                        <>
+                            {currentThread.messages.map((msg, idx) => {
+                                const isUser = msg.role === "user";
 
-                                {/* Show Info Icon if message has related chunks */}
-                                {msg.role === "assistant" && msg.related_chunks?.length > 0 && (
-                                    <IconButton
-                                        size="small"
-                                        sx={{position: "absolute", top: 4, right: -40}}
-                                        onClick={() => {
-                                            console.log("Opening chunk drawer with: ", msg.related_chunks);
-                                            setDrawerRelatedChunks(msg.related_chunks);
-                                            setIsDrawerOpen(true);
-                                        }}
-                                    >
-                                        <InfoIcon fontSize="small"/>
-                                    </IconButton>
-                                )}
-                            </Box>
-                        </Box>
+                                // For user messages, you can keep your existing code
+                                // We'll focus on the "assistant" messages for markdown
+                                if (isUser) {
+                                    return (
+                                        <Box
+                                            key={idx}
+                                            sx={{
+                                                display: "flex",
+                                                flexDirection: "row-reverse",
+                                                mb: 2,
+                                                position: "relative",
+                                            }}
+                                        >
+                                            <Box
+                                                sx={{
+                                                    backgroundColor: "rgba(0, 123, 255, 0.2)",
+                                                    color: "#fff",
+                                                    borderRadius: "12px",
+                                                    padding: "8px 12px",
+                                                    maxWidth: "60%",
+                                                    mb: 1,
+                                                    position: "relative",
+                                                }}
+                                            >
+                                                <Typography variant="body1">{msg.content}</Typography>
+                                            </Box>
+                                        </Box>
+                                    );
+                                } else {
+                                    // Assistant message
+                                    return (
+                                        <Box
+                                            key={idx}
+                                            sx={{
+                                                display: "flex",
+                                                flexDirection: "row",
+                                                mb: 2,
+                                                position: "relative",
+                                            }}
+                                        >
+                                            <Box
+                                                sx={{
+                                                    backgroundColor: "#2F2F2F",
+                                                    color: "#fff",
+                                                    borderRadius: "12px",
+                                                    padding: "8px 12px",
+                                                    maxWidth: "60%",
+                                                    mb: 1,
+                                                    position: "relative",
+                                                }}
+                                            >
+                                                {/*
+                  Use ReactMarkdown for the content,
+                  so code blocks get rendered with syntax highlight
+                */}
+                                                <ReactMarkdown
+                                                    children={msg.content}
+                                                    components={{
+                                                        code({node, inline, className, children, ...props}) {
+                                                            const match = /language-(\w+)/.exec(className || "");
+                                                            return !inline && match ? (
+                                                                <SyntaxHighlighter
+                                                                    style={oneDark}
+                                                                    language={match[1]}
+                                                                    PreTag="div"
+                                                                    {...props}
+                                                                >
+                                                                    {String(children).replace(/\n$/, "")}
+                                                                </SyntaxHighlighter>
+                                                            ) : (
+                                                                <code {...props}>{children}</code>
+                                                            );
+                                                        },
+                                                    }}
+                                                />
+
+                                                {/* Show Info Icon if message has related chunks */}
+                                                {msg.related_chunks?.length > 0 && (
+                                                    <IconButton
+                                                        size="small"
+                                                        sx={{position: "absolute", top: 4, right: -40}}
+                                                        onClick={() => {
+                                                            console.log("Opening chunk drawer with: ", msg.related_chunks);
+                                                            setDrawerRelatedChunks(msg.related_chunks);
+                                                            setIsDrawerOpen(true);
+                                                        }}
+                                                    >
+                                                        <InfoIcon fontSize="small"/>
+                                                    </IconButton>
+                                                )}
+                                            </Box>
+                                        </Box>
+                                    );
+                                }
+                            })}
+
+                            {/* Show any streaming text in progress */}
+                            {intermediateMessage && (
+                                <Box
+                                    sx={{
+                                        borderLeft: "3px solid #007bff",
+                                        paddingLeft: "10px",
+                                        marginTop: "10px",
+                                        color: "#777",
+                                    }}
+                                >
+                                    <Typography variant="body2">{intermediateMessage}</Typography>
+                                </Box>
+                            )}
+                        </>
                     );
                 })}
 
@@ -397,7 +477,7 @@ export default function ChatContainer() {
                     onClick={handleToggleSidebar}
                     sx={{
                         position: "absolute",
-                        left: sidebarOpen ? 250 : 10,
+                        left: sidebarOpen ? 255 : 15,
                         top: 2,
                         zIndex: 8,
                         transition: "left 0.3s ease-in-out",
@@ -455,7 +535,7 @@ export default function ChatContainer() {
 
                     <IconButton
                         sx={{
-                            backgroundColor: "#121212",
+                            // backgroundColor: "#121212",
                             border: "1px solid",
                             borderColor: "divider",
                             borderRadius: "8px",

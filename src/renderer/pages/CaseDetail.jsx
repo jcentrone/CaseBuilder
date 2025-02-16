@@ -337,7 +337,13 @@ export default function CaseDetail({setCurrentModule}) {
             }}>
             {/* Primary Case Information */}
             <Paper elevation={3} sx={{p: 3, mb: 3}}>
-                <Grid container spacing={2}>
+                <Box
+
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between'
+                    }}
+                >
                     {!isCollapsed ?
                         <Grid item xs={12} md={8}>
                             <Typography variant="h4" gutterBottom>
@@ -350,11 +356,34 @@ export default function CaseDetail({setCurrentModule}) {
 
                         </Grid>
                         :
-                        <Grid item xs={12}>
-                            <Typography variant="h4" gutterBottom>
+                        <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%'
+                        }}>
+                            <Typography variant="h4" sx={{}} >
                                 {caseData.caseName}
                             </Typography>
-                        </Grid>
+                            <Box sx={{display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center'}}>
+                                <Button variant="contained" color="primary" sx={{ height: '36px', width: '140px'}} onClick={handleAddCaseItem}>
+                                    Add Case Item
+                                </Button>
+                                <Button variant="outlined" color="primary" sx={{height: '36px', width: '165px'}}
+                                        onClick={() => setEditDialogOpen(true)}>
+                                    Edit Case Details
+                                </Button>
+                                <Button variant="outlined" color="info" sx={{height: '36px'}}
+                                        onClick={() => setIsCollapsed(!isCollapsed)}>
+
+                                    {isCollapsed ? <ExpandMoreIcon fontSize="large"/> :
+                                        <ExpandLessIcon fontSize="large"/>}
+                                </Button>
+
+                            </Box>
+                        </Box>
+
 
                     }
 
@@ -391,22 +420,23 @@ export default function CaseDetail({setCurrentModule}) {
                             </Typography>
                         </Grid>
                     }
-                </Grid>
-
-                <Box sx={{display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center'}}>
-                    <Button variant="contained" color="primary" sx={{mt: 2}} onClick={handleAddCaseItem}>
-                        Add Case Item
-                    </Button>
-                    <Button variant="outlined" color="primary" sx={{mt: 2}} onClick={() => setEditDialogOpen(true)}>
-                        Edit Case Details
-                    </Button>
-                    <Button variant="outlined" color="info" sx={{mt: 2, height: '36px'}}
-                            onClick={() => setIsCollapsed(!isCollapsed)}>
-
-                        {isCollapsed ? <ExpandMoreIcon fontSize="large"/> : <ExpandLessIcon fontSize="large"/>}
-                    </Button>
-
                 </Box>
+                {!isCollapsed &&
+                    <Box sx={{display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center'}}>
+                        <Button variant="contained" color="primary" sx={{mt: 2}} onClick={handleAddCaseItem}>
+                            Add Case Item
+                        </Button>
+                        <Button variant="outlined" color="primary" sx={{mt: 2}} onClick={() => setEditDialogOpen(true)}>
+                            Edit Case Details
+                        </Button>
+                        <Button variant="outlined" color="info" sx={{mt: 2, height: '36px'}}
+                                onClick={() => setIsCollapsed(!isCollapsed)}>
+
+                            {isCollapsed ? <ExpandMoreIcon fontSize="large"/> : <ExpandLessIcon fontSize="large"/>}
+                        </Button>
+
+                    </Box>
+                }
             </Paper>
 
             {/* Sub-navigation with Tabs */
@@ -421,7 +451,11 @@ export default function CaseDetail({setCurrentModule}) {
 
             {/* Child route content */
             }
-            <Box sx={{height: 'calc(100vh - 410px)', overflow: 'hidden'}}>
+            <Box
+                sx={{
+                    height: isCollapsed ? 'calc(100vh - 275px)' : 'calc(100vh - 410px)',
+                    overflow: 'hidden'
+                }}>
                 <Outlet context={{documents, evidence}}/>
             </Box>
 
